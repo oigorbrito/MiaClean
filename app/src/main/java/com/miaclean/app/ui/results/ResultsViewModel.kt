@@ -50,6 +50,10 @@ class ResultsViewModel @Inject constructor(
      * two parallel delete flows, the second of which would overwrite `_pendingMediaStoreIds` and
      * strand the first batch — confirmed deletions in the first dialog would never clean the Room
      * cache because `onMediaStoreDeletionResult` finds an empty pending list.
+     *
+     * For the MediaStore flow this stays `true` across the system delete dialog round-trip and is
+     * only released from [onMediaStoreDeletionResult]. For SAF-only / unsupported / no-op paths it
+     * is released in the `finally` block of [requestDelete].
      */
     private var deleteInFlight: Boolean = false
 
@@ -115,6 +119,7 @@ class ResultsViewModel @Inject constructor(
             .toList()
         deleteInFlight = true
         viewModelScope.launch {
+            var awaitingDialog = false
             try {
                 val plan = mediaDeleter.prepare(items)
                 if (plan.alreadyDeletedMediaIds.isNotEmpty()) {
@@ -124,6 +129,7 @@ class ResultsViewModel @Inject constructor(
                 when {
                     plan.intentSender != null -> {
                         _pendingMediaStoreIds.value = plan.pendingMediaStoreMediaIds
+                        awaitingDialog = true
                         _deleteEvents.send(DeleteEvent.LaunchIntentSender(plan.intentSender))
                     }
                     plan.unsupportedMediaStoreMediaIds.isNotEmpty() -> {
@@ -137,7 +143,9 @@ class ResultsViewModel @Inject constructor(
                     }
                 }
             } finally {
-                deleteInFlight = false
+                // Keep the guard held across the system delete dialog for the MediaStore flow;
+                // [onMediaStoreDeletionResult] will release it. For every other branch we're done.
+                if (!awaitingDialog) deleteInFlight = false
             }
         }
     }
@@ -149,6 +157,7 @@ class ResultsViewModel @Inject constructor(
     fun onMediaStoreDeletionResult(confirmed: Boolean) {
         val pending = _pendingMediaStoreIds.value
         _pendingMediaStoreIds.value = emptyList()
+        deleteInFlight = false
         if (!confirmed || pending.isEmpty()) return
         viewModelScope.launch {
             mediaHashDao.deleteByMediaIds(pending)
