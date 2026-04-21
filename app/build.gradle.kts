@@ -23,6 +23,21 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+
+        // Play Billing configuration. These are placeholder SKU ids: the real subscription /
+        // one-time products must be created in Play Console with these exact ids (or the ids
+        // below overridden to match). Until the ids exist on the backend,
+        // `queryProductDetails` returns an empty list and the paywall renders its "billing
+        // unavailable" state — no crash, no purchase flow.
+        buildConfigField("String", "BILLING_SKU_MONTHLY", "\"pro_monthly\"")
+        buildConfigField("String", "BILLING_SKU_YEARLY", "\"pro_yearly\"")
+        buildConfigField("String", "BILLING_SKU_LIFETIME", "\"pro_lifetime\"")
+        // Base-64 RSA public key from Play Console > Monetize > License testing. Used to verify
+        // purchase signatures client-side. When empty (debug / pre-release builds) signature
+        // verification is skipped with a warning log; callers should NOT rely on verification in
+        // this state. Release builds with an empty key should fail fast at the repository layer
+        // rather than silently trusting unverified purchases.
+        buildConfigField("String", "BILLING_PUBLIC_KEY", "\"\"")
     }
 
     buildTypes {
@@ -120,7 +135,11 @@ dependencies {
 
     implementation(libs.phashcalc)
 
+    implementation(libs.billing.ktx)
+
     testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.coroutines.test)
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.test.espresso)
 }

@@ -5,7 +5,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.net.Uri
 import android.os.Build
+import android.app.Activity
+import com.android.billingclient.api.BillingClient
 import com.miaclean.app.data.ScanRepository
+import com.miaclean.app.data.billing.BillingProduct
+import com.miaclean.app.data.billing.BillingState
+import com.miaclean.app.data.billing.PlayBillingRepository
 import com.miaclean.app.data.db.MediaHashDao
 import com.miaclean.app.data.db.MediaHashEntity
 import com.miaclean.app.data.delete.MediaDeleter
@@ -37,11 +42,22 @@ class ResultsViewModel @Inject constructor(
     private val mediaHashDao: MediaHashDao,
     private val entitlementRepository: EntitlementRepository,
     private val settingsRepository: SettingsRepository,
+    private val playBillingRepository: PlayBillingRepository,
 ) : ViewModel() {
 
     val entitlement: StateFlow<Entitlement> =
         entitlementRepository.entitlement.stateIn(
             viewModelScope, SharingStarted.Eagerly, Entitlement.Free,
+        )
+
+    /**
+     * Current Play Billing status, exposed to the paywall. Defaults to [BillingState.Loading]
+     * until [PlayBillingRepository] emits its first state — the `Ready` case only arrives
+     * after a successful `queryProductDetails`, which can take a second on cold start.
+     */
+    val billingState: StateFlow<BillingState> =
+        playBillingRepository.state.stateIn(
+            viewModelScope, SharingStarted.Eagerly, BillingState.Loading,
         )
 
     val deletesThisMonth: StateFlow<Int> =
@@ -470,13 +486,34 @@ class ResultsViewModel @Inject constructor(
     }
 
     /**
-     * Flips the entitlement without going through Play Billing. The single caller is the
-     * overflow menu item in [ResultsScreen], which is itself gated behind `BuildConfig.DEBUG`.
-     * When real billing lands, delete this method — do not add new callers, because the UI
-     * gate is the only thing keeping this from being a freemium bypass vector.
+     * Debug-only shortcut flipping the entitlement flag without going through Play Billing. The
+     * single caller is the overflow menu in [ResultsScreen], which is itself gated behind
+     * `BuildConfig.DEBUG`. Do not add non-debug callers — when Play Billing is configured end
+     * to end the debug UI should become the only path that keeps using this, and on-device
+     * users never see it.
      */
     fun setProForDebug(isPro: Boolean) {
         viewModelScope.launch { entitlementRepository.setProForDebug(isPro) }
+    }
+
+    /**
+     * Launches the Play Billing purchase flow for [product]. The caller passes the hosting
+     * [activity] because Play Billing mounts its UI on top of one; a plain application context
+     * would throw. If the launch itself fails (billing not ready, SKU unknown), emits a
+     * [DeleteEvent.PurchaseLaunchFailed] so the UI can surface a snackbar.
+     */
+    fun purchase(activity: Activity, product: BillingProduct) {
+        val result = playBillingRepository.launchPurchaseFlow(activity, product)
+        if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+            viewModelScope.launch {
+                _deleteEvents.send(DeleteEvent.PurchaseLaunchFailed)
+            }
+        }
+    }
+
+    /** Paywall "retry" tap — re-attempt the billing connection + product query. */
+    fun retryBilling() {
+        playBillingRepository.start()
     }
 
     sealed interface DeleteEvent {
@@ -511,6 +548,12 @@ class ResultsViewModel @Inject constructor(
             val allowed: Int,
             val dropped: Int,
         ) : DeleteEvent
+
+        /**
+         * [PlayBillingRepository.launchPurchaseFlow] returned a non-OK [BillingResult]. The UI
+         * should show a transient snackbar; Play Billing's own UI never appeared.
+         */
+        data object PurchaseLaunchFailed : DeleteEvent
     }
 
     private enum class DialogMode { Idle, Delete, Restore }
