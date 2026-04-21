@@ -103,7 +103,7 @@ class ResultsViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
-            _groups.value = scanRepository.loadGroups()
+            publishGroups(scanRepository.loadGroups())
         }
     }
 
@@ -203,7 +203,22 @@ class ResultsViewModel @Inject constructor(
 
     private suspend fun refreshAfterDelete(removed: Set<Long>) {
         _selection.value = _selection.value - removed
-        _groups.value = scanRepository.loadGroups()
+        publishGroups(scanRepository.loadGroups())
+    }
+
+    /**
+     * Publishes a new group list and clears a now-orphan category filter in a single
+     * non-suspending burst. Keeping both assignments adjacent (no `suspend` call between them)
+     * ensures the derived [filteredGroups] [combine] only observes the final
+     * `{groups, filter}` snapshot, avoiding a transient empty-state flash when the filter
+     * pointed at a category that was just deleted.
+     */
+    private fun publishGroups(groups: List<DuplicateGroup>) {
+        val activeFilter = _categoryFilter.value
+        if (activeFilter != null && groups.none { it.dominantCategory == activeFilter }) {
+            _categoryFilter.value = null
+        }
+        _groups.value = groups
     }
 
     sealed interface SelectionSummary {
