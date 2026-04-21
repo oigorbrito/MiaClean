@@ -237,11 +237,17 @@ class PlayBillingRepository @Inject constructor(
     }
 
     private fun scheduleReconnect() {
+        // Atomically snapshot-and-advance the backoff BEFORE the delay so each scheduler sees
+        // its own delay value. If two `scheduleReconnect` calls overlap (e.g. a setup-finished
+        // error immediately followed by a service-disconnected callback), reading-then-waiting
+        // would let both coroutines observe the same value and only advance the counter once —
+        // effectively skipping a step. `getAndUpdate` serialises that read-modify-write on the
+        // atomic so back-to-back callers get strictly increasing delays.
+        val currentDelay = reconnectBackoffMillis.getAndUpdate { current ->
+            (current * 2).coerceAtMost(MAX_RECONNECT_BACKOFF_MS)
+        }
         scope.launch {
-            delay(reconnectBackoffMillis.get())
-            reconnectBackoffMillis.updateAndGet { current ->
-                (current * 2).coerceAtMost(MAX_RECONNECT_BACKOFF_MS)
-            }
+            delay(currentDelay)
             if (!billingClient.isReady) connect()
         }
     }
