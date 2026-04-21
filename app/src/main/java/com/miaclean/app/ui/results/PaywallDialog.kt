@@ -27,11 +27,11 @@ fun PaywallDialog(
         title = { Text(stringResource(R.string.paywall_title)) },
         text = {
             val body = if (state.dropped > 0) {
-                // PartialAllow: some items were deleted, others dropped.
-                val allowed = (state.limit - state.used).coerceAtLeast(0)
+                // PartialAllow: `allowed` items were deleted; `dropped` were skipped because they
+                // wouldn't fit the monthly budget.
                 stringResource(
                     R.string.paywall_body_partial,
-                    allowed,
+                    state.allowed,
                     state.dropped,
                     state.limit,
                     state.limit,

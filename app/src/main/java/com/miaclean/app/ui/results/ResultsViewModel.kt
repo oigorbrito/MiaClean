@@ -207,7 +207,8 @@ class ResultsViewModel @Inject constructor(
                             DeleteEvent.PaywallRequired(
                                 used = decision.used,
                                 limit = decision.limit,
-                                dropped = initialItems.size,
+                                allowed = 0,
+                                dropped = 0,
                             ),
                         )
                         return@launch
@@ -220,6 +221,7 @@ class ResultsViewModel @Inject constructor(
                     pendingPaywallAfterDelete = DeleteEvent.PaywallRequired(
                         used = decision.used,
                         limit = decision.limit,
+                        allowed = decision.allowed,
                         dropped = decision.denied,
                     )
                 }
@@ -332,13 +334,21 @@ class ResultsViewModel @Inject constructor(
         viewModelScope.launch { _deleteEvents.send(pending) }
     }
 
+    /**
+     * Opens the paywall from the entitlement chip. No-op for Pro users — a Pro user tapping the
+     * "Pro" chip would otherwise see the "you've used X/50 grátis" copy, which is both wrong and
+     * confusing. For Free users, we surface the current budget state with `dropped=0` so the
+     * dialog renders the "fully blocked" copy variant.
+     */
     fun requestPaywall() {
         viewModelScope.launch {
             val state = entitlementRepository.currentState()
+            if (state.entitlement == Entitlement.Pro) return@launch
             _deleteEvents.send(
                 DeleteEvent.PaywallRequired(
                     used = state.deletesThisMonth,
                     limit = EntitlementEvaluator.FREE_DELETES_PER_MONTH,
+                    allowed = 0,
                     dropped = 0,
                 ),
             )
@@ -356,11 +366,15 @@ class ResultsViewModel @Inject constructor(
 
         /**
          * Freemium gate fired. [dropped] is 0 when the request was fully blocked (budget
-         * exhausted), and positive when a PartialAllow trimmed the tail of the selection.
+         * exhausted) or when the chip was tapped, and positive when a PartialAllow trimmed the
+         * tail of the selection. [allowed] mirrors [EntitlementEvaluator.Decision.PartialAllow]
+         * and is propagated explicitly so the dialog never has to re-derive it — decouples the
+         * UI from the evaluator's internal math.
          */
         data class PaywallRequired(
             val used: Int,
             val limit: Int,
+            val allowed: Int,
             val dropped: Int,
         ) : DeleteEvent
     }
