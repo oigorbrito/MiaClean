@@ -28,9 +28,15 @@ import javax.inject.Singleton
  *  - The summary write precedes [GlanceAppWidgetManager.updateAll]. Calling updateAll before the
  *    DataStore edit commits would race against the widget's `provideGlance` read and briefly
  *    render stale numbers on a pinned widget.
- *  - Failures from `updateAll` are swallowed. The launcher process can be dead, the widget can
- *    be unpinned, or the AppWidgetHost can throw transient IPC errors — none of those should
- *    fail a scan. Swallowing Throwable keeps the worker green.
+ *  - Every failure mode — DataStore write and `updateAll` IPC alike — is swallowed. The
+ *    launcher process can be dead, the widget can be unpinned, the disk can be full, or Preferences
+ *    DataStore can hit its (very rare) corruption recovery path. None of those should fail a
+ *    scan: the worker would return `Result.failure()` and skip the delta notification the user
+ *    actually cares about. We intentionally drop the widget update instead and let the next
+ *    scan cycle retry.
+ *  - `CancellationException` is re-thrown. Structured concurrency must not be short-circuited by
+ *    a blanket catch-Throwable here — if the caller's scope cancels (e.g. worker stopped,
+ *    ViewModel cleared), the refresh must propagate cancellation like any other suspending call.
  */
 @Singleton
 class WidgetSummaryUpdater @Inject constructor(
@@ -44,16 +50,25 @@ class WidgetSummaryUpdater @Inject constructor(
             val keeper = group.items.minOfOrNull { it.sizeBytes } ?: 0L
             (group.totalBytes - keeper).coerceAtLeast(0L)
         }
-        settingsRepository.setWidgetSummary(
-            WidgetSummary(
-                hasScanned = true,
-                duplicateCount = count,
-                reclaimableBytes = reclaimable,
-            ),
-        )
+        try {
+            settingsRepository.setWidgetSummary(
+                WidgetSummary(
+                    hasScanned = true,
+                    duplicateCount = count,
+                    reclaimableBytes = reclaimable,
+                ),
+            )
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            // DataStore write failures (disk full, I/O error during atomic rename) must not
+            // fail the scan — the widget simply stays on the previous snapshot until the next
+            // scan cycle retries.
+            return
+        }
         try {
             DuplicatesWidget().updateAll(context)
-        } catch (_: Throwable) {
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             // Launcher-process IPC; not fatal to the scan itself.
         }
     }

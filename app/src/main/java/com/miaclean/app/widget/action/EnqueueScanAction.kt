@@ -49,6 +49,13 @@ class EnqueueScanAction : ActionCallback {
                 context.startActivity(intent)
             }
         }
-        DuplicatesWidget().updateAll(context)
+        try {
+            DuplicatesWidget().updateAll(context)
+        } catch (_: Throwable) {
+            // Launcher-process IPC; not fatal to the action itself. Same rationale as
+            // [com.miaclean.app.widget.WidgetSummaryUpdater.refreshFromGroups]: widget
+            // unpinned, host dead, or a transient binder error should never propagate out
+            // of an action callback and tear down the widget's tap handling.
+        }
     }
 }
