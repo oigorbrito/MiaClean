@@ -1,3 +1,5 @@
+import java.net.URI
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -113,6 +115,8 @@ dependencies {
 
     implementation(libs.androidx.documentfile)
 
+    implementation(libs.androidx.exifinterface)
+
     implementation(libs.phashcalc)
 
     testImplementation(libs.junit)
@@ -123,3 +127,51 @@ dependencies {
 kapt {
     correctErrorTypes = true
 }
+
+// Downloads the MediaPipe Face Detector model into a generated assets directory on first build.
+// The detector no-ops gracefully when the asset is missing (see SelfieDetector), so CI without
+// internet still builds; it just doesn't get face-based selfie detection. Using a dedicated
+// generated directory (registered as an extra `assets.srcDir` on the `main` source set) lets AGP
+// wire the implicit task dependencies for merge/lint on its own.
+val faceModelUrl =
+    "https://storage.googleapis.com/mediapipe-models/face_detector/" +
+        "blaze_face_short_range/float16/1/blaze_face_short_range.tflite"
+val generatedAssetsDir = layout.buildDirectory.dir("generated/mediapipeAssets")
+
+val downloadFaceDetectorModel by tasks.registering {
+    description = "Fetches the blaze_face_short_range.tflite model used by SelfieDetector."
+    val outputDir = generatedAssetsDir
+    outputs.dir(outputDir)
+    outputs.upToDateWhen {
+        outputDir.get().file("face_detector.tflite").asFile.let { it.exists() && it.length() > 0 }
+    }
+    doLast {
+        val target = outputDir.get().file("face_detector.tflite").asFile
+        if (target.exists() && target.length() > 0) return@doLast
+        target.parentFile.mkdirs()
+        try {
+            URI(faceModelUrl).toURL().openStream().use { input ->
+                target.outputStream().use { output -> input.copyTo(output) }
+            }
+            logger.lifecycle("Downloaded face_detector.tflite (${target.length() / 1024} KB)")
+        } catch (t: Throwable) {
+            logger.warn(
+                "Could not download MediaPipe face detector model: ${t.message}. " +
+                    "SelfieDetector will skip face-based classification.",
+            )
+            if (target.exists() && target.length() == 0L) target.delete()
+        }
+    }
+}
+
+android.sourceSets.getByName("main").assets.srcDir(
+    generatedAssetsDir.map { it.asFile }.also { /* keep the provider alive */ },
+)
+
+// Ensure every task that consumes assets waits for the download to run.
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }
+    .configureEach { dependsOn(downloadFaceDetectorModel) }
+tasks.matching { it.name.startsWith("generate") && it.name.contains("Lint") }
+    .configureEach { dependsOn(downloadFaceDetectorModel) }
+tasks.matching { it.name.startsWith("package") && it.name.endsWith("Resources") }
+    .configureEach { dependsOn(downloadFaceDetectorModel) }
