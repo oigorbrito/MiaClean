@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -22,7 +23,18 @@ interface MediaHashDao {
     suspend fun deleteByMediaId(mediaId: Long)
 
     @Query("DELETE FROM media_hash WHERE media_id IN (:mediaIds)")
-    suspend fun deleteByMediaIds(mediaIds: List<Long>)
+    suspend fun deleteByMediaIdsChunk(mediaIds: List<Long>)
+
+    /**
+     * Chunked wrapper around [deleteByMediaIdsChunk]. SQLite's `SQLITE_MAX_VARIABLE_NUMBER` is 999
+     * on API 26–30, so a large bulk selection (e.g. "select all duplicates except first" across
+     * hundreds of groups) would otherwise crash with `SQLiteException: too many SQL variables`.
+     */
+    @Transaction
+    suspend fun deleteByMediaIds(mediaIds: List<Long>) {
+        if (mediaIds.isEmpty()) return
+        mediaIds.chunked(CHUNK_SIZE).forEach { deleteByMediaIdsChunk(it) }
+    }
 
     @Query("SELECT COUNT(*) FROM media_hash")
     fun observeCount(): Flow<Int>
@@ -40,4 +52,9 @@ interface MediaHashDao {
 
     @Query("SELECT * FROM media_hash WHERE p_hash IS NOT NULL")
     suspend fun findAllWithPHash(): List<MediaHashEntity>
+
+    companion object {
+        /** Safely below SQLite's 999-variable limit on API 26–30. */
+        private const val CHUNK_SIZE = 900
+    }
 }
