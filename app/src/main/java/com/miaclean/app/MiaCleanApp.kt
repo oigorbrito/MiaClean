@@ -11,7 +11,14 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.VideoFrameDecoder
 import com.miaclean.app.data.billing.PlayBillingRepository
+import com.miaclean.app.data.settings.SettingsRepository
+import com.miaclean.app.work.PeriodicScanScheduler
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -27,6 +34,19 @@ class MiaCleanApp : Application(), Configuration.Provider, ImageLoaderFactory {
      */
     @Inject
     lateinit var playBillingRepository: PlayBillingRepository
+
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
+
+    @Inject
+    lateinit var periodicScanScheduler: PeriodicScanScheduler
+
+    /**
+     * Scope bound to the [Application] lifetime (process-wide). Survives configuration changes
+     * and Activity teardown; cancelled only when the process dies, which is the moment the
+     * DataStore flows would die anyway.
+     */
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -47,6 +67,24 @@ class MiaCleanApp : Application(), Configuration.Provider, ImageLoaderFactory {
         super.onCreate()
         createScanNotificationChannel()
         playBillingRepository.start()
+        observeBackgroundScanToggle()
+    }
+
+    /**
+     * Mirrors the user's `backgroundScanEnabled` preference into WorkManager. Subscribing with
+     * [distinctUntilChanged] means a rapid toggle flip only cancels/enqueues once. The schedule
+     * is keyed by a unique work name, so re-enqueueing while already enqueued is a cheap no-op
+     * thanks to [androidx.work.ExistingPeriodicWorkPolicy.KEEP].
+     */
+    private fun observeBackgroundScanToggle() {
+        appScope.launch {
+            settingsRepository.backgroundScanEnabled
+                .distinctUntilChanged()
+                .collect { enabled ->
+                    if (enabled) periodicScanScheduler.enable()
+                    else periodicScanScheduler.disable()
+                }
+        }
     }
 
     private fun createScanNotificationChannel() {

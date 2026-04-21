@@ -1,0 +1,24 @@
+package com.miaclean.app.work
+
+/**
+ * Pure function that decides whether a background scan should raise a notification, separated
+ * from Android APIs so it can be unit-tested.
+ *
+ * Rules:
+ *   - `current <= 0` → never notify (nothing to clean up).
+ *   - `current <= baseline` → don't re-notify. The user is either already aware of this set
+ *     (baseline was set to `current` on the last successful post) or the baseline is ahead
+ *     because items were restored from trash; in either case a new alert would be noise.
+ *   - otherwise → notify with the POSITIVE DELTA (`current - baseline`), so the title reads
+ *     "3 new duplicates found" not "27 duplicates found" on a device that has been accruing
+ *     clutter for weeks.
+ */
+internal object DuplicateDelta {
+
+    /** `null` means "don't notify"; otherwise the positive delta to surface in the title. */
+    fun computeNotifiableDelta(current: Int, baseline: Int): Int? {
+        if (current <= 0) return null
+        val delta = current - baseline
+        return if (delta > 0) delta else null
+    }
+}

@@ -1,5 +1,9 @@
 package com.miaclean.app.ui.settings
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,7 +43,16 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val deleteStrategy by viewModel.deleteStrategy.collectAsStateWithLifecycle()
+    val backgroundScanEnabled by viewModel.backgroundScanEnabled.collectAsStateWithLifecycle()
+    val notifyOnNewDuplicates by viewModel.notifyOnNewDuplicates.collectAsStateWithLifecycle()
     val entitlement by viewModel.entitlement.collectAsStateWithLifecycle()
+
+    // Requesting POST_NOTIFICATIONS only matters on API 33+. If the user denies we still flip the
+    // preference — the notifier will simply no-op on each cycle until the user grants it from
+    // system settings. Flipping the toggle off is unconditional (no permission needed).
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { /* result intentionally ignored; notifier re-checks on each cycle */ }
 
     Scaffold(
         topBar = {
@@ -85,6 +98,31 @@ fun SettingsScreen(
                 description = stringResource(R.string.settings_strategy_permanent_desc),
                 selected = deleteStrategy == DeleteStrategy.Permanent,
                 onClick = { viewModel.setDeleteStrategy(DeleteStrategy.Permanent) },
+            )
+
+            // --- Background scan section ---
+            Spacer(Modifier.height(24.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(16.dp))
+            SwitchRow(
+                title = stringResource(R.string.settings_background_scan_title),
+                description = stringResource(R.string.settings_background_scan_desc),
+                checked = backgroundScanEnabled,
+                onCheckedChange = { viewModel.setBackgroundScanEnabled(it) },
+            )
+            Spacer(Modifier.height(8.dp))
+            SwitchRow(
+                title = stringResource(R.string.settings_notify_title),
+                description = stringResource(R.string.settings_notify_desc),
+                checked = notifyOnNewDuplicates,
+                onCheckedChange = { enabled ->
+                    viewModel.setNotifyOnNewDuplicates(enabled)
+                    // Only request permission when the user is enabling notifications *and* we're
+                    // on API 33+. Turning the toggle off never needs a permission prompt.
+                    if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                },
             )
 
             // --- Debug section (debug builds only) ---
@@ -146,5 +184,31 @@ private fun StrategyOption(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+@Composable
+private fun SwitchRow(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

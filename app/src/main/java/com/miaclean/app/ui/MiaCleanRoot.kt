@@ -3,6 +3,9 @@ package com.miaclean.app.ui
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -20,8 +23,29 @@ object Routes {
 }
 
 @Composable
-fun MiaCleanRoot() {
+fun MiaCleanRoot(pendingOpenResults: MutableState<Boolean> = mutableStateOf(false)) {
     val nav: NavHostController = rememberNavController()
+
+    // Deep-link from the "found N new duplicates" notification. Consuming the flag here rather
+    // than in MainActivity keeps all navigation decisions inside the Compose tree and avoids a
+    // second source of truth for the back stack. The flag is reset after we trigger nav so a
+    // recomposition (rotation, theme change) doesn't re-fire.
+    LaunchedEffect(pendingOpenResults.value) {
+        if (pendingOpenResults.value) {
+            nav.navigate(Routes.Results) {
+                // On cold start from a notification tap, Onboarding is the start destination
+                // but the user already completed it (otherwise the worker never produced a
+                // duplicate to notify about). Pop Onboarding off the stack so pressing Back on
+                // Results exits the app instead of dumping them into the first-run flow.
+                popUpTo(Routes.Onboarding) { inclusive = true }
+                // If the activity is already alive on a different screen (e.g. Settings) this
+                // collapses the stack to a single Results entry rather than stacking duplicates.
+                launchSingleTop = true
+            }
+            pendingOpenResults.value = false
+        }
+    }
+
     Scaffold { padding ->
         NavHost(
             navController = nav,
