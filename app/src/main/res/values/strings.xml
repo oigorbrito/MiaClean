@@ -33,7 +33,7 @@
     <string name="results_clear_selection">Limpar</string>
     <string name="results_selection_summary">%1$d selecionados • %2$s</string>
     <string name="results_delete_action">Apagar %1$d</string>
-    <string name="results_delete_unsupported">Apagar itens da galeria requer Android 11 ou superior. Itens do WhatsApp via SAF continuam funcionando.</string>
+    <string name="results_delete_unsupported">Alguns itens não puderam ser apagados nesta versão do Android. Itens do WhatsApp via SAF continuam funcionando.</string>
     <string name="results_delete_nothing">Não foi possível apagar os itens selecionados. Permissões podem ter sido revogadas ou os arquivos já foram removidos.</string>
     <string name="results_empty_filtered">Nenhuma duplicada nessa categoria.</string>
     <string name="results_filter_all">Tudo</string>

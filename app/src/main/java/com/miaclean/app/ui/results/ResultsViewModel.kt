@@ -64,6 +64,24 @@ class ResultsViewModel @Inject constructor(
     private val _pendingMediaStoreIds = MutableStateFlow<List<Long>>(emptyList())
     val pendingMediaStoreIds: StateFlow<List<Long>> = _pendingMediaStoreIds.asStateFlow()
 
+    /**
+     * API 29 consent queue. On Android 10 there is no batched delete request; each cross-app
+     * MediaStore item requires its own system prompt from the [RecoverableSecurityException]
+     * it raised. We launch the head of this queue, wait for [onMediaStoreDeletionResult], finish
+     * the delete if confirmed, pop, and launch the next — until empty. Kept in the ViewModel so
+     * it survives rotation while any of the dialogs is showing.
+     */
+    private val _consentQueue = MutableStateFlow<List<MediaDeleter.PendingConsent>>(emptyList())
+    val consentQueue: StateFlow<List<MediaDeleter.PendingConsent>> = _consentQueue.asStateFlow()
+
+    /**
+     * Latched when an API-29 consent chain is primed alongside some non-recoverable failures so
+     * the `Unsupported` snackbar is deferred until every consent dialog has returned. Emitting
+     * the snackbar between dialogs would suspend the event collector inside `showSnackbar`,
+     * stalling the next `LaunchIntentSender` event until the snackbar auto-dismissed.
+     */
+    private var pendingUnsupportedAfterConsent: Boolean = false
+
     private val _deleteEvents = Channel<DeleteEvent>(capacity = Channel.BUFFERED)
     val deleteEvents: Flow<DeleteEvent> = _deleteEvents.receiveAsFlow()
 
@@ -134,9 +152,10 @@ class ResultsViewModel @Inject constructor(
 
     /**
      * Runs the delete pipeline off the main thread. SAF items are deleted inline (the cache is
-     * purged immediately), then either an [IntentSender] is emitted for the UI to launch the
-     * system dialog, or a [DeleteEvent.Unsupported] is emitted so the UI can tell the user that
-     * MediaStore deletion requires Android 11+.
+     * purged immediately), then one of:
+     *  * a single batch [IntentSender] is emitted (API 30+);
+     *  * the API-29 per-item consent queue is primed and its head launched;
+     *  * a [DeleteEvent.Unsupported] is emitted for items that cannot be deleted on this OS.
      */
     fun requestDelete() {
         val ids = _selection.value
@@ -162,6 +181,18 @@ class ResultsViewModel @Inject constructor(
                         awaitingDialog = true
                         _deleteEvents.send(DeleteEvent.LaunchIntentSender(plan.intentSender))
                     }
+                    plan.pendingConsent.isNotEmpty() -> {
+                        _consentQueue.value = plan.pendingConsent
+                        // Defer any `Unsupported` snackbar until the full consent chain drains;
+                        // otherwise `showSnackbar` would suspend the event collector and block
+                        // delivery of the next `LaunchIntentSender` until the snackbar timed out.
+                        pendingUnsupportedAfterConsent =
+                            plan.unsupportedMediaStoreMediaIds.isNotEmpty()
+                        awaitingDialog = true
+                        _deleteEvents.send(
+                            DeleteEvent.LaunchIntentSender(plan.pendingConsent.first().intentSender),
+                        )
+                    }
                     plan.unsupportedMediaStoreMediaIds.isNotEmpty() -> {
                         _deleteEvents.send(DeleteEvent.Unsupported)
                     }
@@ -173,18 +204,25 @@ class ResultsViewModel @Inject constructor(
                     }
                 }
             } finally {
-                // Keep the guard held across the system delete dialog for the MediaStore flow;
-                // [onMediaStoreDeletionResult] will release it. For every other branch we're done.
+                // Keep the guard held across the system delete dialog(s); both the API 30+ batch
+                // and the API 29 consent chain release it from [onMediaStoreDeletionResult] once
+                // every pending prompt has returned.
                 if (!awaitingDialog) deleteInFlight = false
             }
         }
     }
 
     /**
-     * Called after the system delete dialog returns a result. When the user confirmed, the OS
-     * has already removed the files; we wipe the cache rows and refresh the groups.
+     * Called after the system delete dialog returns a result. Handles both the API 30+ batch
+     * path (OS has already removed files on confirmation — we just prune the cache) and the
+     * API 29 consent chain (we must re-issue `resolver.delete` per URI before moving on to the
+     * next dialog).
      */
     fun onMediaStoreDeletionResult(confirmed: Boolean) {
+        if (_consentQueue.value.isNotEmpty()) {
+            handleConsentResult(confirmed)
+            return
+        }
         val pending = _pendingMediaStoreIds.value
         _pendingMediaStoreIds.value = emptyList()
         deleteInFlight = false
@@ -192,6 +230,33 @@ class ResultsViewModel @Inject constructor(
         viewModelScope.launch {
             mediaHashDao.deleteByMediaIds(pending)
             refreshAfterDelete(pending.toSet())
+        }
+    }
+
+    private fun handleConsentResult(confirmed: Boolean) {
+        val queue = _consentQueue.value
+        if (queue.isEmpty()) {
+            deleteInFlight = false
+            return
+        }
+        val head = queue.first()
+        val rest = queue.drop(1)
+        _consentQueue.value = rest
+        viewModelScope.launch {
+            val deleted = if (confirmed) mediaDeleter.finishConsentDelete(head.uri) else false
+            if (deleted) {
+                mediaHashDao.deleteByMediaIds(listOf(head.mediaId))
+                refreshAfterDelete(setOf(head.mediaId))
+            }
+            if (rest.isNotEmpty()) {
+                _deleteEvents.send(DeleteEvent.LaunchIntentSender(rest.first().intentSender))
+            } else {
+                if (pendingUnsupportedAfterConsent) {
+                    pendingUnsupportedAfterConsent = false
+                    _deleteEvents.send(DeleteEvent.Unsupported)
+                }
+                deleteInFlight = false
+            }
         }
     }
 
