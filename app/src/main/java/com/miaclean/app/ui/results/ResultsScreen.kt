@@ -68,6 +68,8 @@ fun ResultsScreen(
     onBack: () -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: ResultsViewModel = hiltViewModel(),
+    pendingCategoryFilter: androidx.compose.runtime.MutableState<MediaCategory?> =
+        androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(null) },
 ) {
     val groups by viewModel.filteredGroups.collectAsStateWithLifecycle()
     val allGroups by viewModel.groups.collectAsStateWithLifecycle()
@@ -90,6 +92,17 @@ fun ResultsScreen(
     val purchaseSuccessMessage = stringResource(R.string.paywall_purchase_success)
     val undoLabel = stringResource(R.string.results_delete_undo_action)
     val undoFailedMessage = stringResource(R.string.results_delete_undo_failed)
+
+    // Consume the deep-link filter hint from a category-child notification (PR #21 bundle). We
+    // apply it even if the requested category isn't currently in `availableCategories` — the
+    // ResultsViewModel's own `refreshAfterDelete` / `publishGroups` machinery will clear a stale
+    // filter next cycle. Resetting the MutableState to null here prevents a rotation-induced
+    // recompose from reapplying a filter the user has since changed by hand.
+    LaunchedEffect(pendingCategoryFilter.value) {
+        val requested = pendingCategoryFilter.value ?: return@LaunchedEffect
+        viewModel.setCategoryFilter(requested)
+        pendingCategoryFilter.value = null
+    }
 
     // Auto-close the paywall and surface a confirmation snackbar when the entitlement flips to
     // Pro while the dialog is open. Covers the happy-path purchase acknowledgement, purchases

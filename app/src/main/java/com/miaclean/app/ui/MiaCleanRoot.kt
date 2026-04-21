@@ -10,6 +10,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.miaclean.app.domain.MediaCategory
 import com.miaclean.app.ui.onboarding.OnboardingScreen
 import com.miaclean.app.ui.results.ResultsScreen
 import com.miaclean.app.ui.scan.ScanScreen
@@ -23,7 +24,10 @@ object Routes {
 }
 
 @Composable
-fun MiaCleanRoot(pendingOpenResults: MutableState<Boolean> = mutableStateOf(false)) {
+fun MiaCleanRoot(
+    pendingOpenResults: MutableState<Boolean> = mutableStateOf(false),
+    pendingCategoryFilter: MutableState<MediaCategory?> = mutableStateOf(null),
+) {
     val nav: NavHostController = rememberNavController()
 
     // Deep-link from the "found N new duplicates" notification. Consuming the flag here rather
@@ -66,6 +70,7 @@ fun MiaCleanRoot(pendingOpenResults: MutableState<Boolean> = mutableStateOf(fals
                 ResultsScreen(
                     onBack = { nav.popBackStack() },
                     onOpenSettings = { nav.navigate(Routes.Settings) },
+                    pendingCategoryFilter = pendingCategoryFilter,
                 )
             }
             composable(Routes.Settings) {

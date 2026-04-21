@@ -106,4 +106,5 @@
     <string name="finder_notification_channel_name">Duplicadas encontradas</string>
     <string name="finder_notification_channel_description">Avisa quando o scan automático acha duplicadas novas prontas para limpar.</string>
     <string name="finder_notification_body">Toque para liberar cerca de %1$s</string>
+    <string name="finder_notification_summary_body">em %1$d categorias • ~%2$s</string>
 </resources>
