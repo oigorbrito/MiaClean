@@ -54,10 +54,14 @@ class ResultsViewModel @Inject constructor(
                     .flatMap { it.items.asSequence() }
                     .filter { it.id in selected }
                     .toList()
-                SelectionSummary.Some(
-                    count = selectedItems.size,
-                    totalBytes = selectedItems.sumOf { it.sizeBytes },
-                )
+                if (selectedItems.isEmpty()) {
+                    SelectionSummary.Empty
+                } else {
+                    SelectionSummary.Some(
+                        count = selectedItems.size,
+                        totalBytes = selectedItems.sumOf { it.sizeBytes },
+                    )
+                }
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, SelectionSummary.Empty)
 
