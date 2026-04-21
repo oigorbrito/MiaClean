@@ -82,21 +82,26 @@ class MainActivity : ComponentActivity() {
      * rather than being dropped on the scan screen with no context.
      *
      * If onboarding isn't complete or permission has been revoked, we fall through to the
-     * normal UI — which lands on the onboarding screen by default — letting the user fix the
-     * gate without extra messaging.
+     * normal UI — [OnboardingScreen] renders a "Grant permissions" button when the runtime
+     * permission is missing, so the `NeedsPermission` path self-heals without explicit
+     * signalling from here.
      *
-     * Action is nulled out after processing so a configuration-change-triggered `onCreate`
-     * doesn't re-dispatch a duplicate scan from a stale intent.
+     * The action is cleared **after** dispatch completes (inside the coroutine) rather than
+     * synchronously before launch. A configuration change during the DataStore read would
+     * cancel [lifecycleScope], and if the action had already been nulled out the recreated
+     * activity's `onCreate` → `consumeScanNowAction` would skip the work entirely. Retrying
+     * after recreate is safe because [ManualScanScheduler] uses `ExistingWorkPolicy.KEEP` —
+     * at most one scan runs regardless of how many times we re-enter this path.
      */
     private fun consumeScanNowAction(intent: Intent?) {
         if (intent?.action != ACTION_SCAN_NOW) return
-        intent.action = null
         lifecycleScope.launch {
             when (scanDispatcher.dispatch()) {
                 ScanDispatchResult.ReadyToEnqueue -> pendingOpenResults.value = true
                 ScanDispatchResult.NeedsOnboarding,
                 ScanDispatchResult.NeedsPermission -> Unit
             }
+            intent.action = null
         }
     }
 
