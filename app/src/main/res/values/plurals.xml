@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="onboarding_saf_count">
+        <item quantity="one">%d pasta concedida.</item>
+        <item quantity="other">%d pastas concedidas.</item>
+    </plurals>
+</resources>
