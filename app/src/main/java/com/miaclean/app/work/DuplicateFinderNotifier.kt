@@ -62,6 +62,17 @@ class DuplicateFinderNotifier @Inject constructor(
         ensureChannel()
         val manager = NotificationManagerCompat.from(context)
 
+        // Cancel every child slot before posting the new cycle. Without this, cycles that emit
+        // a different set of categories (multi → single, or {A,B} → {C,D}) leave orphan children
+        // in the tray: the summary at FINDER_NOTIFICATION_ID is replaced by ID, but the per-
+        // category children at CHILD_NOTIFICATION_ID_BASE + ordinal stay until the user swipes
+        // them away. Blanket-cancelling all possible child IDs is cheap (~6 binder calls, no-op
+        // on IDs that aren't posted) and unconditionally correct. Doesn't touch
+        // FINDER_NOTIFICATION_ID because the summary/single post below replaces it in-place.
+        for (category in MediaCategory.values()) {
+            manager.cancel(childNotificationId(category))
+        }
+
         // Single-category path: standalone notif without the group chrome.
         if (deltasByCategory.size == 1) {
             val (category, delta) = deltasByCategory.entries.first()
