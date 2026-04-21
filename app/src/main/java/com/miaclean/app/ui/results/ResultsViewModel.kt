@@ -45,6 +45,14 @@ class ResultsViewModel @Inject constructor(
     private val _deleteEvents = Channel<DeleteEvent>(capacity = Channel.BUFFERED)
     val deleteEvents: Flow<DeleteEvent> = _deleteEvents.receiveAsFlow()
 
+    /**
+     * Reentrancy guard for [requestDelete]. A double-tap on the delete FAB would otherwise launch
+     * two parallel delete flows, the second of which would overwrite `_pendingMediaStoreIds` and
+     * strand the first batch — confirmed deletions in the first dialog would never clean the Room
+     * cache because `onMediaStoreDeletionResult` finds an empty pending list.
+     */
+    private var deleteInFlight: Boolean = false
+
     val selectionSummary: StateFlow<SelectionSummary> =
         combine(_groups, _selection) { groups, selected ->
             if (selected.isEmpty()) {
@@ -99,25 +107,37 @@ class ResultsViewModel @Inject constructor(
     fun requestDelete() {
         val ids = _selection.value
         if (ids.isEmpty()) return
+        if (deleteInFlight) return
         val items = _groups.value
             .asSequence()
             .flatMap { it.items.asSequence() }
             .filter { it.id in ids }
             .toList()
+        deleteInFlight = true
         viewModelScope.launch {
-            val plan = mediaDeleter.prepare(items)
-            if (plan.alreadyDeletedMediaIds.isNotEmpty()) {
-                mediaHashDao.deleteByMediaIds(plan.alreadyDeletedMediaIds)
-                refreshAfterDelete(plan.alreadyDeletedMediaIds.toSet())
-            }
-            when {
-                plan.intentSender != null -> {
-                    _pendingMediaStoreIds.value = plan.pendingMediaStoreMediaIds
-                    _deleteEvents.send(DeleteEvent.LaunchIntentSender(plan.intentSender))
+            try {
+                val plan = mediaDeleter.prepare(items)
+                if (plan.alreadyDeletedMediaIds.isNotEmpty()) {
+                    mediaHashDao.deleteByMediaIds(plan.alreadyDeletedMediaIds)
+                    refreshAfterDelete(plan.alreadyDeletedMediaIds.toSet())
                 }
-                plan.unsupportedMediaStoreMediaIds.isNotEmpty() -> {
-                    _deleteEvents.send(DeleteEvent.Unsupported)
+                when {
+                    plan.intentSender != null -> {
+                        _pendingMediaStoreIds.value = plan.pendingMediaStoreMediaIds
+                        _deleteEvents.send(DeleteEvent.LaunchIntentSender(plan.intentSender))
+                    }
+                    plan.unsupportedMediaStoreMediaIds.isNotEmpty() -> {
+                        _deleteEvents.send(DeleteEvent.Unsupported)
+                    }
+                    plan.alreadyDeletedMediaIds.isEmpty() -> {
+                        // SAF-only selection where every DocumentsContract.deleteDocument returned
+                        // false (file already gone, permission revoked, etc.). Surface it instead
+                        // of silently swallowing the tap.
+                        _deleteEvents.send(DeleteEvent.NothingDeleted)
+                    }
                 }
+            } finally {
+                deleteInFlight = false
             }
         }
     }
@@ -136,6 +156,12 @@ class ResultsViewModel @Inject constructor(
         }
     }
 
+    sealed interface DeleteEvent {
+        data class LaunchIntentSender(val intentSender: IntentSender) : DeleteEvent
+        data object Unsupported : DeleteEvent
+        data object NothingDeleted : DeleteEvent
+    }
+
     private suspend fun refreshAfterDelete(removed: Set<Long>) {
         _selection.value = _selection.value - removed
         _groups.value = scanRepository.loadGroups()
@@ -144,10 +170,5 @@ class ResultsViewModel @Inject constructor(
     sealed interface SelectionSummary {
         data object Empty : SelectionSummary
         data class Some(val count: Int, val totalBytes: Long) : SelectionSummary
-    }
-
-    sealed interface DeleteEvent {
-        data class LaunchIntentSender(val intentSender: IntentSender) : DeleteEvent
-        data object Unsupported : DeleteEvent
     }
 }

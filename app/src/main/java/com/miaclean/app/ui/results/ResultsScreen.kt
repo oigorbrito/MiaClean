@@ -61,6 +61,7 @@ fun ResultsScreen(
     var preview by remember { mutableStateOf<MediaItem?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val unsupportedMessage = stringResource(R.string.results_delete_unsupported)
+    val nothingDeletedMessage = stringResource(R.string.results_delete_nothing)
 
     val deleteLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult(),
@@ -76,6 +77,9 @@ fun ResultsScreen(
                 )
                 ResultsViewModel.DeleteEvent.Unsupported -> snackbarHostState.showSnackbar(
                     unsupportedMessage,
+                )
+                ResultsViewModel.DeleteEvent.NothingDeleted -> snackbarHostState.showSnackbar(
+                    nothingDeletedMessage,
                 )
             }
         }
