@@ -21,6 +21,9 @@ interface MediaHashDao {
     @Query("DELETE FROM media_hash WHERE media_id = :mediaId")
     suspend fun deleteByMediaId(mediaId: Long)
 
+    @Query("DELETE FROM media_hash WHERE media_id IN (:mediaIds)")
+    suspend fun deleteByMediaIds(mediaIds: List<Long>)
+
     @Query("SELECT COUNT(*) FROM media_hash")
     fun observeCount(): Flow<Int>
 
