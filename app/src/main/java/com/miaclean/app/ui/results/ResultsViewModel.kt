@@ -1,6 +1,7 @@
 package com.miaclean.app.ui.results
 
 import android.content.IntentSender
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.miaclean.app.data.ScanRepository
@@ -355,6 +356,13 @@ class ResultsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Flips the entitlement without going through Play Billing. The single caller is the
+     * overflow menu item in [ResultsScreen], which is itself gated behind `BuildConfig.DEBUG`.
+     * Annotated [VisibleForTesting] so lint flags any future non-test / non-debug caller as
+     * defense-in-depth against accidental exposure via deep links or new UI entry points.
+     */
+    @VisibleForTesting
     fun setProForDebug(isPro: Boolean) {
         viewModelScope.launch { entitlementRepository.setProForDebug(isPro) }
     }

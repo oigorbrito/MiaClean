@@ -76,7 +76,6 @@ fun ResultsScreen(
     val deletesThisMonth by viewModel.deletesThisMonth.collectAsStateWithLifecycle()
     var preview by remember { mutableStateOf<MediaItem?>(null) }
     var paywall by remember { mutableStateOf<ResultsViewModel.DeleteEvent.PaywallRequired?>(null) }
-    var overflowOpen by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val unsupportedMessage = stringResource(R.string.results_delete_unsupported)
@@ -139,8 +138,10 @@ fun ResultsScreen(
                     // Debug-only Pro toggle. Gated by `BuildConfig.DEBUG` so release builds
                     // don't ship a one-tap bypass of the freemium gate. When real Play Billing
                     // lands, this menu can go away entirely (or be replaced by a proper
-                    // subscription management entry point).
+                    // subscription management entry point). `overflowOpen` is declared inside
+                    // the gate so release builds don't allocate the MutableState at all.
                     if (com.miaclean.app.BuildConfig.DEBUG) {
+                        var overflowOpen by remember { mutableStateOf(false) }
                         IconButton(onClick = { overflowOpen = true }) {
                             Icon(imageVector = Icons.Filled.MoreVert, contentDescription = null)
                         }
