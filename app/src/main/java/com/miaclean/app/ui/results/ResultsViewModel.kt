@@ -203,7 +203,15 @@ class ResultsViewModel @Inject constructor(
 
     private suspend fun refreshAfterDelete(removed: Set<Long>) {
         _selection.value = _selection.value - removed
-        _groups.value = scanRepository.loadGroups()
+        val groups = scanRepository.loadGroups()
+        _groups.value = groups
+        // If the active filter no longer has any matching groups, clear it so the user is not
+        // stranded on an empty screen with no filter chip visible to reset it (the chip row is
+        // hidden when only one category remains).
+        val activeFilter = _categoryFilter.value
+        if (activeFilter != null && groups.none { it.dominantCategory == activeFilter }) {
+            _categoryFilter.value = null
+        }
     }
 
     sealed interface SelectionSummary {
