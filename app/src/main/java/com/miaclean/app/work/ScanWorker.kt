@@ -1,7 +1,6 @@
 package com.miaclean.app.work
 
 import android.app.Notification
-import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
@@ -13,6 +12,7 @@ import androidx.work.WorkerParameters
 import com.miaclean.app.MiaCleanApp
 import com.miaclean.app.R
 import com.miaclean.app.data.ScanRepository
+import com.miaclean.app.data.settings.SettingsRepository
 import com.miaclean.app.data.settings.UserSettingsRepository
 import com.miaclean.app.domain.ScanProgress
 import dagger.assisted.Assisted
@@ -26,6 +26,8 @@ class ScanWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val scanRepository: ScanRepository,
     private val userSettings: UserSettingsRepository,
+    private val settingsRepository: SettingsRepository,
+    private val notifier: DuplicateFinderNotifier,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
@@ -33,9 +35,37 @@ class ScanWorker @AssistedInject constructor(
         val safUris = userSettings.currentSafTreeUris().toList()
         val final = scanRepository.scan(additionalSafTreeUris = safUris).last()
         return when (final) {
-            is ScanProgress.Done -> Result.success()
+            is ScanProgress.Done -> {
+                maybeNotifyDelta(final.duplicates)
+                Result.success()
+            }
             is ScanProgress.Failed -> Result.failure()
             else -> Result.success()
+        }
+    }
+
+    /**
+     * Posts the "N new duplicates" notification when two conditions hold:
+     *   1. The absolute duplicate count went UP since the last notification (a DELTA, not a
+     *      snapshot — otherwise the user sees the same "5 duplicates" every 24h forever).
+     *   2. The user still has `notifyOnNewDuplicates` enabled in Settings.
+     *
+     * The "last notified" counter is only advanced after a successful post so that a cycle where
+     * POST_NOTIFICATIONS is revoked or the permission check silently fails doesn't "burn" the
+     * delta — the next cycle tries again against the same baseline.
+     */
+    private suspend fun maybeNotifyDelta(currentDuplicates: Int) {
+        if (!settingsRepository.currentNotifyOnNewDuplicates()) return
+        val baseline = settingsRepository.currentLastNotifiedDuplicateCount()
+        val delta = DuplicateDelta.computeNotifiableDelta(currentDuplicates, baseline) ?: return
+
+        val reclaimable = scanRepository.loadGroups().sumOf { it.totalBytes }
+        val posted = notifier.notifyIfNewDuplicatesFound(
+            newDuplicateDelta = delta,
+            reclaimableBytes = reclaimable,
+        )
+        if (posted) {
+            settingsRepository.setLastNotifiedDuplicateCount(currentDuplicates)
         }
     }
 

@@ -4,4 +4,8 @@
         <item quantity="one">%d pasta concedida.</item>
         <item quantity="other">%d pastas concedidas.</item>
     </plurals>
+    <plurals name="finder_notification_title">
+        <item quantity="one">%d duplicada nova encontrada</item>
+        <item quantity="other">%d duplicadas novas encontradas</item>
+    </plurals>
 </resources>

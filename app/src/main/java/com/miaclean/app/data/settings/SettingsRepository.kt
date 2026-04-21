@@ -3,11 +3,14 @@ package com.miaclean.app.data.settings
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,6 +28,9 @@ class SettingsRepository @Inject constructor(
 ) {
 
     private val deleteStrategyKey = stringPreferencesKey(KEY_DELETE_STRATEGY)
+    private val backgroundScanKey = booleanPreferencesKey(KEY_BACKGROUND_SCAN)
+    private val notifyKey = booleanPreferencesKey(KEY_NOTIFY_ON_NEW)
+    private val lastNotifiedCountKey = intPreferencesKey(KEY_LAST_NOTIFIED_COUNT)
 
     val deleteStrategy: Flow<DeleteStrategy> = context.deletePrefsDataStore.data.map { prefs ->
         when (prefs[deleteStrategyKey]) {
@@ -33,13 +39,62 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    /** Whether WorkManager should keep a periodic background scan scheduled. Default `true`. */
+    val backgroundScanEnabled: Flow<Boolean> = context.deletePrefsDataStore.data.map { prefs ->
+        prefs[backgroundScanKey] ?: true
+    }
+
+    /**
+     * Whether the periodic scan worker should raise a notification when it discovers new
+     * duplicates. Independent from [backgroundScanEnabled]: the user can keep the cache fresh
+     * without being bothered. Default `true`.
+     */
+    val notifyOnNewDuplicates: Flow<Boolean> = context.deletePrefsDataStore.data.map { prefs ->
+        prefs[notifyKey] ?: true
+    }
+
+    /**
+     * Persisted across scans so the worker can compute a delta ("N NEW duplicates since last
+     * notification") rather than spamming the user with the same total every 24h.
+     */
+    val lastNotifiedDuplicateCount: Flow<Int> = context.deletePrefsDataStore.data.map { prefs ->
+        prefs[lastNotifiedCountKey] ?: 0
+    }
+
+    suspend fun currentBackgroundScanEnabled(): Boolean = backgroundScanEnabled.first()
+
+    suspend fun currentNotifyOnNewDuplicates(): Boolean = notifyOnNewDuplicates.first()
+
+    suspend fun currentLastNotifiedDuplicateCount(): Int = lastNotifiedDuplicateCount.first()
+
     suspend fun setDeleteStrategy(strategy: DeleteStrategy) {
         context.deletePrefsDataStore.edit { prefs ->
             prefs[deleteStrategyKey] = strategy.name
         }
     }
 
+    suspend fun setBackgroundScanEnabled(enabled: Boolean) {
+        context.deletePrefsDataStore.edit { prefs ->
+            prefs[backgroundScanKey] = enabled
+        }
+    }
+
+    suspend fun setNotifyOnNewDuplicates(enabled: Boolean) {
+        context.deletePrefsDataStore.edit { prefs ->
+            prefs[notifyKey] = enabled
+        }
+    }
+
+    suspend fun setLastNotifiedDuplicateCount(count: Int) {
+        context.deletePrefsDataStore.edit { prefs ->
+            prefs[lastNotifiedCountKey] = count
+        }
+    }
+
     private companion object {
         const val KEY_DELETE_STRATEGY = "delete_strategy"
+        const val KEY_BACKGROUND_SCAN = "background_scan_enabled"
+        const val KEY_NOTIFY_ON_NEW = "notify_on_new_duplicates"
+        const val KEY_LAST_NOTIFIED_COUNT = "last_notified_duplicate_count"
     }
 }
