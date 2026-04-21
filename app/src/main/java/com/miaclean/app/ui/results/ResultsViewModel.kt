@@ -1,6 +1,7 @@
 package com.miaclean.app.ui.results
 
 import android.content.IntentSender
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.net.Uri
@@ -376,10 +377,19 @@ class ResultsViewModel @Inject constructor(
                     entities = preservedEntities,
                 )
                 _deleteEvents.send(DeleteEvent.UndoableDeletion(count = pending.size))
+                // Intentionally *do not* flush the pending paywall here. On a PartialAllow +
+                // Trash flow the Undo snackbar needs to stay reachable; if we emitted
+                // PaywallRequired now, the paywall dialog would open on top of the snackbar
+                // (or be queued to open immediately after it auto-dismisses) and a user
+                // tapping "Desfazer" would see the restore system dialog dismissed behind the
+                // paywall. [dismissUndoSnapshot] flushes after the snackbar times out; the
+                // undo path flushes via [handleRestoreResult] / undo failure paths.
             } else if (pending.isNotEmpty()) {
                 _deleteEvents.send(DeleteEvent.PermanentDeletion(count = pending.size))
+                flushPendingPaywall()
+            } else {
+                flushPendingPaywall()
             }
-            flushPendingPaywall()
         }
     }
 
@@ -388,11 +398,20 @@ class ResultsViewModel @Inject constructor(
         lastTrashedDeletion = null
         dialogMode = DialogMode.Idle
         deleteInFlight = false
-        if (!confirmed || snapshot == null) return
+        if (!confirmed || snapshot == null) {
+            // User cancelled the restore dialog — the trash deletion stands, so any deferred
+            // paywall is still meaningful. Flush it now that the snackbar flow is fully over.
+            flushPendingPaywall()
+            return
+        }
         viewModelScope.launch {
             mediaHashDao.upsertAll(snapshot.entities)
             entitlementRepository.recoverDeletions(snapshot.mediaIds.size)
             publishGroups(scanRepository.loadGroups())
+            // Restore succeeded — budget was refunded, so the PartialAllow paywall is no longer
+            // accurate. Drop it on the floor rather than showing stale "you dropped 5 items"
+            // copy after those 5 items are back.
+            pendingPaywallAfterDelete = null
         }
     }
 
@@ -410,17 +429,34 @@ class ResultsViewModel @Inject constructor(
         deleteInFlight = true
         dialogMode = DialogMode.Restore
         viewModelScope.launch {
-            val intentSender = mediaDeleter.buildRestoreRequest(snapshot.uris)
-            _deleteEvents.send(DeleteEvent.LaunchIntentSender(intentSender))
+            try {
+                val intentSender = mediaDeleter.buildRestoreRequest(snapshot.uris)
+                _deleteEvents.send(DeleteEvent.LaunchIntentSender(intentSender))
+            } catch (t: Throwable) {
+                // `buildRestoreRequest` can throw if the URIs were purged out from under us
+                // (user cleared the trash from Files, 30-day expiry, permission revoked). Without
+                // this catch the coroutine dies with `deleteInFlight = true` latched forever,
+                // bricking every subsequent delete until the user kills the app. Roll back local
+                // state and surface a snackbar so the user knows undo failed.
+                Log.w(TAG, "Failed to build restore request; rolling back undo state", t)
+                dialogMode = DialogMode.Idle
+                deleteInFlight = false
+                lastTrashedDeletion = null
+                _deleteEvents.send(DeleteEvent.UndoFailed)
+                flushPendingPaywall()
+            }
         }
     }
 
     /**
      * Snackbar auto-dismiss path — discards the undo snapshot so a stale tap later (e.g. a
-     * second snackbar over the top) doesn't try to restore the wrong batch. Idempotent.
+     * second snackbar over the top) doesn't try to restore the wrong batch. Also drains any
+     * paywall that was deferred so the Undo snackbar could run first (see [handleDeleteResult]).
+     * Idempotent.
      */
     fun dismissUndoSnapshot() {
         lastTrashedDeletion = null
+        flushPendingPaywall()
     }
 
     private fun handleConsentResult(confirmed: Boolean) {
@@ -554,6 +590,18 @@ class ResultsViewModel @Inject constructor(
          * should show a transient snackbar; Play Billing's own UI never appeared.
          */
         data object PurchaseLaunchFailed : DeleteEvent
+
+        /**
+         * [undoLastTrashDeletion] failed before the system restore dialog could be launched —
+         * the snapshot URIs are no longer restorable (user cleared trash, expiry, permission
+         * revoked). Surface a snackbar; local state has already been rolled back so the user
+         * can continue deleting.
+         */
+        data object UndoFailed : DeleteEvent
+    }
+
+    private companion object {
+        const val TAG = "ResultsViewModel"
     }
 
     private enum class DialogMode { Idle, Delete, Restore }

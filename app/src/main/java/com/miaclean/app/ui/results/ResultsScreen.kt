@@ -89,6 +89,7 @@ fun ResultsScreen(
     val purchaseLaunchFailedMessage = stringResource(R.string.paywall_error_launch)
     val purchaseSuccessMessage = stringResource(R.string.paywall_purchase_success)
     val undoLabel = stringResource(R.string.results_delete_undo_action)
+    val undoFailedMessage = stringResource(R.string.results_delete_undo_failed)
 
     // Auto-close the paywall and surface a confirmation snackbar when the entitlement flips to
     // Pro while the dialog is open. Covers the happy-path purchase acknowledgement, purchases
@@ -123,10 +124,15 @@ fun ResultsScreen(
                     // way we tell the VM so the stored snapshot can be cleared (on Undo the VM
                     // will already have launched the restore dialog before this returns).
                     val message = context.getString(R.string.results_delete_undoable, event.count)
+                    // Long duration because this snackbar carries a destructive undo action;
+                    // Material guidance (and Google's own Photos / Files apps) recommend ~10s
+                    // so the user has time to read "N moved to trash" and react before the
+                    // window closes. The short 4s default is only appropriate for purely
+                    // informational snackbars without an action.
                     val result = snackbarHostState.showSnackbar(
                         message = message,
                         actionLabel = undoLabel,
-                        duration = SnackbarDuration.Short,
+                        duration = SnackbarDuration.Long,
                     )
                     when (result) {
                         SnackbarResult.ActionPerformed -> viewModel.undoLastTrashDeletion()
@@ -141,6 +147,9 @@ fun ResultsScreen(
                 }
                 ResultsViewModel.DeleteEvent.PurchaseLaunchFailed -> snackbarHostState.showSnackbar(
                     purchaseLaunchFailedMessage,
+                )
+                ResultsViewModel.DeleteEvent.UndoFailed -> snackbarHostState.showSnackbar(
+                    undoFailedMessage,
                 )
             }
         }
