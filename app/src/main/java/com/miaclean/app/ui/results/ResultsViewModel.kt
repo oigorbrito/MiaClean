@@ -21,6 +21,7 @@ import com.miaclean.app.data.entitlement.EntitlementRepository
 import com.miaclean.app.data.settings.SettingsRepository
 import com.miaclean.app.domain.DuplicateGroup
 import com.miaclean.app.domain.MediaCategory
+import com.miaclean.app.widget.WidgetSummaryUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
@@ -45,6 +46,7 @@ class ResultsViewModel @Inject constructor(
     private val entitlementRepository: EntitlementRepository,
     private val settingsRepository: SettingsRepository,
     private val playBillingRepository: PlayBillingRepository,
+    private val widgetSummaryUpdater: WidgetSummaryUpdater,
 ) : ViewModel() {
 
     val entitlement: StateFlow<Entitlement> =
@@ -639,6 +641,10 @@ class ResultsViewModel @Inject constructor(
      * ensures the derived [filteredGroups] [combine] only observes the final
      * `{groups, filter}` snapshot, avoiding a transient empty-state flash when the filter
      * pointed at a category that was just deleted.
+     *
+     * The widget refresh is fire-and-forget on [viewModelScope] because it issues a DataStore
+     * write + `GlanceAppWidgetManager.updateAll` — blocking the non-suspending publish path on
+     * either would break the transient-flash invariant documented above.
      */
     private fun publishGroups(groups: List<DuplicateGroup>) {
         val activeFilter = _categoryFilter.value
@@ -646,6 +652,9 @@ class ResultsViewModel @Inject constructor(
             _categoryFilter.value = null
         }
         _groups.value = groups
+        viewModelScope.launch {
+            widgetSummaryUpdater.refreshFromGroups(groups)
+        }
     }
 
     sealed interface SelectionSummary {

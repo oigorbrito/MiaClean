@@ -107,4 +107,15 @@
     <string name="finder_notification_channel_description">Avisa quando o scan automático acha duplicadas novas prontas para limpar.</string>
     <string name="finder_notification_body">Toque para liberar cerca de %1$s</string>
     <string name="finder_notification_summary_body">em %1$d categorias • ~%2$s</string>
+
+    <!-- Home-screen widget (Glance) -->
+    <string name="widget_title">MIA Clean</string>
+    <string name="widget_description">Veja duplicadas na tela inicial e escaneie com um toque.</string>
+    <string name="widget_onboarding_pending">Toque para configurar o MIA Clean</string>
+    <string name="widget_needs_permission">Toque para permitir acesso às mídias</string>
+    <string name="widget_ready_to_scan">Pronto para procurar duplicadas</string>
+    <string name="widget_no_duplicates">Tudo limpo por aqui</string>
+    <string name="widget_scan_now">Escanear</string>
+    <string name="widget_scan_again">Escanear novamente</string>
+    <string name="widget_reclaimable">~%1$s recuperáveis</string>
 </resources>

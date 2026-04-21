@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    AppWidgetProvider metadata for the duplicates widget.
+
+    Key decisions:
+      - `minWidth` / `minHeight` chosen so the default placement is 2x2 on a 4x4 launcher grid
+        (~70dp cell + margins). `targetCellWidth` / `targetCellHeight` (API 31+) make the hint
+        explicit for launchers that honour them.
+      - `minResizeWidth` + `resizeMode="horizontal|vertical"` let users shrink the widget to 2x1
+        or grow to 4x2. The Glance composable re-runs `provideGlance` on size change and falls
+        back to text-first when width < 180dp.
+      - `updatePeriodMillis="0"` — we push updates explicitly from the scan pipeline
+        (`WidgetSummaryUpdater`). A non-zero period < 30 minutes is silently clamped by the
+        system; setting 0 avoids keeping the AppWidgetHost alive for no reason.
+      - `widgetCategory="home_screen"` only. No lock-screen variant: the content is non-actionable
+        without tapping into the app, which the keyguard blocks anyway.
+      - `previewLayout` points to a lightweight vector placeholder. Using `previewImage` only
+        would pin the bitmap to a single density; the layout keeps it crisp in the picker.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="40dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget_loading"
+    android:previewImage="@drawable/widget_preview"
+    android:description="@string/widget_description" />
