@@ -33,10 +33,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,7 +48,6 @@ import com.miaclean.app.R
 import com.miaclean.app.domain.DuplicateGroup
 import com.miaclean.app.domain.MediaItem
 import com.miaclean.app.util.formatBytes
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,18 +59,26 @@ fun ResultsScreen(
     val selection by viewModel.selection.collectAsStateWithLifecycle()
     val selectionSummary by viewModel.selectionSummary.collectAsStateWithLifecycle()
     var preview by remember { mutableStateOf<MediaItem?>(null) }
-    var pendingMediaStoreIds by remember { mutableStateOf<List<Long>>(emptyList()) }
     val snackbarHostState = remember { SnackbarHostState() }
-    val coroutineScope = rememberCoroutineScope()
     val unsupportedMessage = stringResource(R.string.results_delete_unsupported)
 
     val deleteLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult(),
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            viewModel.onMediaStoreDeletionConfirmed(pendingMediaStoreIds)
+        viewModel.onMediaStoreDeletionResult(confirmed = result.resultCode == Activity.RESULT_OK)
+    }
+
+    LaunchedEffect(viewModel) {
+        viewModel.deleteEvents.collect { event ->
+            when (event) {
+                is ResultsViewModel.DeleteEvent.LaunchIntentSender -> deleteLauncher.launch(
+                    IntentSenderRequest.Builder(event.intentSender).build(),
+                )
+                ResultsViewModel.DeleteEvent.Unsupported -> snackbarHostState.showSnackbar(
+                    unsupportedMessage,
+                )
+            }
         }
-        pendingMediaStoreIds = emptyList()
     }
 
     Scaffold(
@@ -121,20 +128,7 @@ fun ResultsScreen(
                     },
                     floatingActionButton = {
                         ExtendedFloatingActionButton(
-                            onClick = {
-                                val plan = viewModel.prepareDelete()
-                                val sender = plan.intentSender
-                                if (sender != null) {
-                                    pendingMediaStoreIds = plan.pendingMediaStoreMediaIds
-                                    deleteLauncher.launch(
-                                        IntentSenderRequest.Builder(sender).build(),
-                                    )
-                                } else if (plan.unsupportedMediaStoreMediaIds.isNotEmpty()) {
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(unsupportedMessage)
-                                    }
-                                }
-                            },
+                            onClick = viewModel::requestDelete,
                             icon = {
                                 Icon(
                                     imageVector = Icons.Filled.DeleteSweep,

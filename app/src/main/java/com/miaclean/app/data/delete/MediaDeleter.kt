@@ -9,6 +9,8 @@ import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import com.miaclean.app.domain.MediaItem
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -39,7 +41,7 @@ class MediaDeleter @Inject constructor(
         val unsupportedMediaStoreMediaIds: List<Long>,
     )
 
-    fun prepare(items: List<MediaItem>): Plan {
+    suspend fun prepare(items: List<MediaItem>): Plan = withContext(Dispatchers.IO) {
         val (safItems, mediaStoreItems) = items.partition { it.id < 0 }
 
         val safDeleted = safItems.mapNotNull { item ->
@@ -50,22 +52,20 @@ class MediaDeleter @Inject constructor(
         }
 
         val mediaStoreIds = mediaStoreItems.map { it.id }
-        return if (mediaStoreItems.isEmpty()) {
-            Plan(
+        when {
+            mediaStoreItems.isEmpty() -> Plan(
                 intentSender = null,
                 alreadyDeletedMediaIds = safDeleted,
                 pendingMediaStoreMediaIds = emptyList(),
                 unsupportedMediaStoreMediaIds = emptyList(),
             )
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            Plan(
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> Plan(
                 intentSender = buildDeleteRequest(mediaStoreItems.map { Uri.parse(it.uri) }),
                 alreadyDeletedMediaIds = safDeleted,
                 pendingMediaStoreMediaIds = mediaStoreIds,
                 unsupportedMediaStoreMediaIds = emptyList(),
             )
-        } else {
-            Plan(
+            else -> Plan(
                 intentSender = null,
                 alreadyDeletedMediaIds = safDeleted,
                 pendingMediaStoreMediaIds = emptyList(),
