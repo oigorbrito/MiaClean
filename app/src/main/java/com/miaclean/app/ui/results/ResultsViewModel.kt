@@ -204,9 +204,10 @@ class ResultsViewModel @Inject constructor(
     private suspend fun refreshAfterDelete(removed: Set<Long>) {
         _selection.value = _selection.value - removed
         val groups = scanRepository.loadGroups()
-        // Clear a now-orphan filter BEFORE publishing the new groups so the derived
-        // [filteredGroups] flow never recomputes against "new groups + stale filter" — which
-        // would otherwise produce a transient empty list and flash an empty-state screen.
+        // Publish both pieces of state without any suspension between them so the derived
+        // [filteredGroups] [combine] only observes the final `{groups, filter}` snapshot (no
+        // transient "new groups + stale filter" state that would flash an empty screen). Do
+        // not introduce a `suspend` call between these two assignments.
         val activeFilter = _categoryFilter.value
         if (activeFilter != null && groups.none { it.dominantCategory == activeFilter }) {
             _categoryFilter.value = null
