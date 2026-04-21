@@ -2,6 +2,7 @@ package com.miaclean.app.data
 
 import android.net.Uri
 import com.miaclean.app.data.classify.MediaClassifier
+import com.miaclean.app.data.classify.MemeDetector
 import com.miaclean.app.data.classify.SelfieDetector
 import com.miaclean.app.data.db.MediaHashDao
 import com.miaclean.app.data.db.MediaHashEntity
@@ -34,6 +35,7 @@ class ScanRepository @Inject constructor(
     private val perceptualHasher: PerceptualHasher,
     private val classifier: MediaClassifier,
     private val selfieDetector: SelfieDetector,
+    private val memeDetector: MemeDetector,
     private val dao: MediaHashDao,
 ) {
 
@@ -79,14 +81,23 @@ class ScanRepository @Inject constructor(
 
     /**
      * Classifies [item] using the cheap metadata-only [MediaClassifier] first, then promotes a
-     * `Photo` to `Selfie` when EXIF or MediaPipe Face Detector agrees. The detector is never run
-     * on videos, screenshots, or memes — they already matched an earlier rung of the classifier
-     * and re-running the detector on them would only risk a false positive.
+     * `Photo` via ML signals. The pipeline is ordered from cheapest → most expensive:
+     *
+     *  1. [MediaClassifier] (path/MIME only) — filters out Screenshot/Video/metadata-selfie/
+     *     metadata-meme. Only survivors ranked as `Photo` continue.
+     *  2. [SelfieDetector] (EXIF + MediaPipe Face Detector) — promotes to `Selfie`.
+     *  3. [MemeDetector] (ML Kit Text Recognition) — promotes to `Meme`.
+     *
+     * Meme runs *after* selfie because (a) path-heuristic memes are already caught by step 1
+     * and (b) a photo with a face AND caption text is far more often a selfie with a filter
+     * watermark than a meme.
      */
-    private fun resolveCategory(item: MediaItem, uri: Uri): MediaCategory {
+    private suspend fun resolveCategory(item: MediaItem, uri: Uri): MediaCategory {
         val base = classifier.classify(item)
         if (base != MediaCategory.Photo) return base
-        return if (selfieDetector.isSelfie(uri, item.sizeBytes)) MediaCategory.Selfie else base
+        if (selfieDetector.isSelfie(uri, item.sizeBytes)) return MediaCategory.Selfie
+        if (memeDetector.isMeme(uri, item.sizeBytes)) return MediaCategory.Meme
+        return base
     }
 
     private suspend fun buildGroups(): List<DuplicateGroup> {
