@@ -1,6 +1,7 @@
 package com.miaclean.app.ui.results
 
 import android.app.Activity
+import android.content.ContextWrapper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -76,15 +77,28 @@ fun ResultsScreen(
     val selectionSummary by viewModel.selectionSummary.collectAsStateWithLifecycle()
     val entitlement by viewModel.entitlement.collectAsStateWithLifecycle()
     val deletesThisMonth by viewModel.deletesThisMonth.collectAsStateWithLifecycle()
+    val billingState by viewModel.billingState.collectAsStateWithLifecycle()
     var preview by remember { mutableStateOf<MediaItem?>(null) }
     var paywall by remember { mutableStateOf<ResultsViewModel.DeleteEvent.PaywallRequired?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
     val unsupportedMessage = stringResource(R.string.results_delete_unsupported)
     val nothingDeletedMessage = stringResource(R.string.results_delete_nothing)
-    val upgradeStubMessage = stringResource(R.string.paywall_upgrade_stub)
+    val purchaseLaunchFailedMessage = stringResource(R.string.paywall_error_launch)
+    val purchaseSuccessMessage = stringResource(R.string.paywall_purchase_success)
     val undoLabel = stringResource(R.string.results_delete_undo_action)
+
+    // Auto-close the paywall and surface a confirmation snackbar when the entitlement flips to
+    // Pro while the dialog is open. Covers the happy-path purchase acknowledgement, purchases
+    // completed on another device (caught by `queryPurchases` on resume), and the debug toggle.
+    LaunchedEffect(entitlement) {
+        if (entitlement == com.miaclean.app.data.entitlement.Entitlement.Pro && paywall != null) {
+            paywall = null
+            snackbarHostState.showSnackbar(purchaseSuccessMessage)
+        }
+    }
 
     val deleteLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult(),
@@ -125,6 +139,9 @@ fun ResultsScreen(
                 is ResultsViewModel.DeleteEvent.PaywallRequired -> {
                     paywall = event
                 }
+                ResultsViewModel.DeleteEvent.PurchaseLaunchFailed -> snackbarHostState.showSnackbar(
+                    purchaseLaunchFailedMessage,
+                )
             }
         }
     }
@@ -263,11 +280,21 @@ fun ResultsScreen(
     paywall?.let { state ->
         PaywallDialog(
             state = state,
-            onUpgrade = {
-                paywall = null
-                // TODO(billing): launch Play Billing flow here.
-                scope.launch { snackbarHostState.showSnackbar(upgradeStubMessage) }
+            billingState = billingState,
+            onPurchase = { product ->
+                val hostActivity = activity
+                if (hostActivity == null) {
+                    scope.launch {
+                        snackbarHostState.showSnackbar(purchaseLaunchFailedMessage)
+                    }
+                } else {
+                    // Keep the dialog open until the purchase completes; the LaunchedEffect above
+                    // closes it once the entitlement flips. If the launch itself fails, the
+                    // `PurchaseLaunchFailed` event surfaces a snackbar and the user can retry.
+                    viewModel.purchase(hostActivity, product)
+                }
             },
+            onRetryBilling = viewModel::retryBilling,
             onDismiss = { paywall = null },
         )
     }
@@ -328,6 +355,18 @@ private fun CategoryFilterRow(
                 )
             }
     }
+}
+
+/**
+ * Walks up the `ContextWrapper` chain to find the hosting [Activity]. Compose's
+ * `LocalContext` inside a dialog may be a context wrapper (theme overlay), so a naive
+ * `context as Activity` cast crashes on some devices. Returns `null` only if the composable
+ * is somehow rendered outside an Activity — treated as a soft failure by the caller.
+ */
+private tailrec fun android.content.Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 @Composable

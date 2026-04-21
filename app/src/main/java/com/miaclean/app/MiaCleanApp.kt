@@ -10,6 +10,7 @@ import androidx.work.Configuration
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.VideoFrameDecoder
+import com.miaclean.app.data.billing.PlayBillingRepository
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -18,6 +19,14 @@ class MiaCleanApp : Application(), Configuration.Provider, ImageLoaderFactory {
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
+
+    /**
+     * Started in [onCreate] so the [BillingClient] connection is ready before the user hits
+     * the paywall. The repository is a process-wide [javax.inject.Singleton]; the connection
+     * survives rotation and is reused across activities.
+     */
+    @Inject
+    lateinit var playBillingRepository: PlayBillingRepository
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -37,6 +46,7 @@ class MiaCleanApp : Application(), Configuration.Provider, ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         createScanNotificationChannel()
+        playBillingRepository.start()
     }
 
     private fun createScanNotificationChannel() {

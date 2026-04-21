@@ -91,12 +91,26 @@ class EntitlementRepository @Inject constructor(
         }
     }
 
-    /** Debug/stub: flip the Pro flag without a real purchase. Wire to a settings toggle. */
-    suspend fun setProForDebug(isPro: Boolean) {
+    /**
+     * Updates the Pro flag in response to an observed Play Billing purchase state change. Called
+     * from [com.miaclean.app.data.billing.PlayBillingRepository] whenever the set of
+     * acknowledged purchases changes (billing flow completes, refund detected on resume, etc.).
+     *
+     * Idempotent: writing the same value is a no-op as far as downstream observers are
+     * concerned because [entitlement] debounces via [DataStore]'s own distinct-value semantics.
+     */
+    suspend fun setProFromPurchase(isPro: Boolean) {
         context.entitlementDataStore.edit { prefs ->
             prefs[isProKey] = isPro
         }
     }
+
+    /**
+     * Debug-only writer for bypassing Play Billing in developer builds. Gated at the UI layer
+     * (debug toggle in Settings) — do not wire new callers outside of `BuildConfig.DEBUG`
+     * branches, otherwise real users can trivially self-promote to Pro.
+     */
+    suspend fun setProForDebug(isPro: Boolean) = setProFromPurchase(isPro)
 
     private fun currentBucket(): String = YearMonth.now().toString() // e.g. "2026-04"
 
