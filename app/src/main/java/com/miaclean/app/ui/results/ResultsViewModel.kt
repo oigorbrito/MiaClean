@@ -6,6 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.miaclean.app.data.ScanRepository
 import com.miaclean.app.data.db.MediaHashDao
 import com.miaclean.app.data.delete.MediaDeleter
+import com.miaclean.app.data.entitlement.Entitlement
+import com.miaclean.app.data.entitlement.EntitlementEvaluator
+import com.miaclean.app.data.entitlement.EntitlementRepository
 import com.miaclean.app.domain.DuplicateGroup
 import com.miaclean.app.domain.MediaCategory
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,7 +30,18 @@ class ResultsViewModel @Inject constructor(
     private val scanRepository: ScanRepository,
     private val mediaDeleter: MediaDeleter,
     private val mediaHashDao: MediaHashDao,
+    private val entitlementRepository: EntitlementRepository,
 ) : ViewModel() {
+
+    val entitlement: StateFlow<Entitlement> =
+        entitlementRepository.entitlement.stateIn(
+            viewModelScope, SharingStarted.Eagerly, Entitlement.Free,
+        )
+
+    val deletesThisMonth: StateFlow<Int> =
+        entitlementRepository.deletesThisMonth.stateIn(
+            viewModelScope, SharingStarted.Eagerly, 0,
+        )
 
     private val _groups = MutableStateFlow<List<DuplicateGroup>>(emptyList())
     val groups: StateFlow<List<DuplicateGroup>> = _groups.asStateFlow()
@@ -81,6 +95,14 @@ class ResultsViewModel @Inject constructor(
      * stalling the next `LaunchIntentSender` event until the snackbar auto-dismissed.
      */
     private var pendingUnsupportedAfterConsent: Boolean = false
+
+    /**
+     * Paywall event to emit after the delete flow settles. Non-null when a PartialAllow decision
+     * trimmed the selection and we want to explain the drop to the user — but only *after* any
+     * system dialog closes, because `showSnackbar` / `AlertDialog` would otherwise block the
+     * event collector and stall the next `LaunchIntentSender`.
+     */
+    private var pendingPaywallAfterDelete: DeleteEvent.PaywallRequired? = null
 
     private val _deleteEvents = Channel<DeleteEvent>(capacity = Channel.BUFFERED)
     val deleteEvents: Flow<DeleteEvent> = _deleteEvents.receiveAsFlow()
@@ -161,15 +183,48 @@ class ResultsViewModel @Inject constructor(
         val ids = _selection.value
         if (ids.isEmpty()) return
         if (deleteInFlight) return
-        val items = _groups.value
+        val initialItems = _groups.value
             .asSequence()
             .flatMap { it.items.asSequence() }
             .filter { it.id in ids }
             .toList()
+        if (initialItems.isEmpty()) return
         deleteInFlight = true
         viewModelScope.launch {
             var awaitingDialog = false
             try {
+                val state = entitlementRepository.currentState()
+                val decision = EntitlementEvaluator.decide(
+                    entitlement = state.entitlement,
+                    requested = initialItems.size,
+                    used = state.deletesThisMonth,
+                )
+                val items = when (decision) {
+                    is EntitlementEvaluator.Decision.Allow -> initialItems
+                    is EntitlementEvaluator.Decision.PartialAllow -> initialItems.take(decision.allowed)
+                    is EntitlementEvaluator.Decision.Blocked -> {
+                        _deleteEvents.send(
+                            DeleteEvent.PaywallRequired(
+                                used = decision.used,
+                                limit = decision.limit,
+                                allowed = 0,
+                                dropped = 0,
+                            ),
+                        )
+                        return@launch
+                    }
+                }
+                // Queue a post-flow paywall for PartialAllow so the user sees *why* 5 of 30 items
+                // didn't get touched. Emitted after the delete flow wraps up to avoid blocking
+                // the event collector inside `showSnackbar` while the system dialog is pending.
+                if (decision is EntitlementEvaluator.Decision.PartialAllow) {
+                    pendingPaywallAfterDelete = DeleteEvent.PaywallRequired(
+                        used = decision.used,
+                        limit = decision.limit,
+                        allowed = decision.allowed,
+                        dropped = decision.denied,
+                    )
+                }
                 val plan = mediaDeleter.prepare(items)
                 if (plan.alreadyDeletedMediaIds.isNotEmpty()) {
                     mediaHashDao.deleteByMediaIds(plan.alreadyDeletedMediaIds)
@@ -203,6 +258,7 @@ class ResultsViewModel @Inject constructor(
                         _deleteEvents.send(DeleteEvent.NothingDeleted)
                     }
                 }
+                flushPendingPaywallIfSync(awaitingDialog)
             } finally {
                 // Keep the guard held across the system delete dialog(s); both the API 30+ batch
                 // and the API 29 consent chain release it from [onMediaStoreDeletionResult] once
@@ -226,10 +282,14 @@ class ResultsViewModel @Inject constructor(
         val pending = _pendingMediaStoreIds.value
         _pendingMediaStoreIds.value = emptyList()
         deleteInFlight = false
-        if (!confirmed || pending.isEmpty()) return
+        if (!confirmed || pending.isEmpty()) {
+            flushPendingPaywall()
+            return
+        }
         viewModelScope.launch {
             mediaHashDao.deleteByMediaIds(pending)
             refreshAfterDelete(pending.toSet())
+            flushPendingPaywall()
         }
     }
 
@@ -255,19 +315,75 @@ class ResultsViewModel @Inject constructor(
                     pendingUnsupportedAfterConsent = false
                     _deleteEvents.send(DeleteEvent.Unsupported)
                 }
+                flushPendingPaywall()
                 deleteInFlight = false
             }
         }
+    }
+
+    private fun flushPendingPaywallIfSync(awaitingDialog: Boolean) {
+        // Only flush inline when no system dialog is pending — otherwise the dialog handlers
+        // will flush after themselves.
+        if (awaitingDialog) return
+        flushPendingPaywall()
+    }
+
+    private fun flushPendingPaywall() {
+        val pending = pendingPaywallAfterDelete ?: return
+        pendingPaywallAfterDelete = null
+        viewModelScope.launch { _deleteEvents.send(pending) }
+    }
+
+    /**
+     * Opens the paywall from the entitlement chip. No-op for Pro users — a Pro user tapping the
+     * "Pro" chip would otherwise see the "you've used X/50 grátis" copy, which is both wrong and
+     * confusing. For Free users, we surface the current budget state with `dropped=0` so the
+     * dialog renders the "fully blocked" copy variant.
+     */
+    fun requestPaywall() {
+        viewModelScope.launch {
+            val state = entitlementRepository.currentState()
+            if (state.entitlement == Entitlement.Pro) return@launch
+            _deleteEvents.send(
+                DeleteEvent.PaywallRequired(
+                    used = state.deletesThisMonth,
+                    limit = EntitlementEvaluator.FREE_DELETES_PER_MONTH,
+                    allowed = 0,
+                    dropped = 0,
+                ),
+            )
+        }
+    }
+
+    fun setProForDebug(isPro: Boolean) {
+        viewModelScope.launch { entitlementRepository.setProForDebug(isPro) }
     }
 
     sealed interface DeleteEvent {
         data class LaunchIntentSender(val intentSender: IntentSender) : DeleteEvent
         data object Unsupported : DeleteEvent
         data object NothingDeleted : DeleteEvent
+
+        /**
+         * Freemium gate fired. [dropped] is 0 when the request was fully blocked (budget
+         * exhausted) or when the chip was tapped, and positive when a PartialAllow trimmed the
+         * tail of the selection. [allowed] mirrors [EntitlementEvaluator.Decision.PartialAllow]
+         * and is propagated explicitly so the dialog never has to re-derive it — decouples the
+         * UI from the evaluator's internal math.
+         */
+        data class PaywallRequired(
+            val used: Int,
+            val limit: Int,
+            val allowed: Int,
+            val dropped: Int,
+        ) : DeleteEvent
     }
 
     private suspend fun refreshAfterDelete(removed: Set<Long>) {
         _selection.value = _selection.value - removed
+        if (removed.isNotEmpty()) {
+            entitlementRepository.recordDeletions(removed.size)
+        }
         publishGroups(scanRepository.loadGroups())
     }
 

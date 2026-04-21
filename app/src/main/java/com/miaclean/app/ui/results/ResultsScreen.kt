@@ -18,9 +18,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,7 +45,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -65,10 +72,16 @@ fun ResultsScreen(
     val categoryFilter by viewModel.categoryFilter.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
     val selectionSummary by viewModel.selectionSummary.collectAsStateWithLifecycle()
+    val entitlement by viewModel.entitlement.collectAsStateWithLifecycle()
+    val deletesThisMonth by viewModel.deletesThisMonth.collectAsStateWithLifecycle()
     var preview by remember { mutableStateOf<MediaItem?>(null) }
+    var paywall by remember { mutableStateOf<ResultsViewModel.DeleteEvent.PaywallRequired?>(null) }
+    var overflowOpen by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     val unsupportedMessage = stringResource(R.string.results_delete_unsupported)
     val nothingDeletedMessage = stringResource(R.string.results_delete_nothing)
+    val upgradeStubMessage = stringResource(R.string.paywall_upgrade_stub)
 
     val deleteLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult(),
@@ -88,6 +101,9 @@ fun ResultsScreen(
                 ResultsViewModel.DeleteEvent.NothingDeleted -> snackbarHostState.showSnackbar(
                     nothingDeletedMessage,
                 )
+                is ResultsViewModel.DeleteEvent.PaywallRequired -> {
+                    paywall = event
+                }
             }
         }
     }
@@ -103,6 +119,11 @@ fun ResultsScreen(
                     }
                 },
                 actions = {
+                    EntitlementChip(
+                        entitlement = entitlement,
+                        used = deletesThisMonth,
+                        onClick = { viewModel.requestPaywall() },
+                    )
                     if (groups.isNotEmpty()) {
                         TextButton(onClick = { viewModel.selectAllDuplicatesExceptFirst() }) {
                             Icon(
@@ -114,6 +135,33 @@ fun ResultsScreen(
                                 modifier = Modifier.padding(start = 4.dp),
                             )
                         }
+                    }
+                    IconButton(onClick = { overflowOpen = true }) {
+                        Icon(imageVector = Icons.Filled.MoreVert, contentDescription = null)
+                    }
+                    DropdownMenu(
+                        expanded = overflowOpen,
+                        onDismissRequest = { overflowOpen = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    stringResource(
+                                        if (entitlement == com.miaclean.app.data.entitlement.Entitlement.Pro) {
+                                            R.string.paywall_debug_toggle_off
+                                        } else {
+                                            R.string.paywall_debug_toggle_on
+                                        },
+                                    ),
+                                )
+                            },
+                            onClick = {
+                                viewModel.setProForDebug(
+                                    isPro = entitlement != com.miaclean.app.data.entitlement.Entitlement.Pro,
+                                )
+                                overflowOpen = false
+                            },
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(),
@@ -211,6 +259,46 @@ fun ResultsScreen(
     preview?.let { item ->
         MediaPreviewDialog(item = item, onDismiss = { preview = null })
     }
+
+    paywall?.let { state ->
+        PaywallDialog(
+            state = state,
+            onUpgrade = {
+                paywall = null
+                // TODO(billing): launch Play Billing flow here.
+                scope.launch { snackbarHostState.showSnackbar(upgradeStubMessage) }
+            },
+            onDismiss = { paywall = null },
+        )
+    }
+}
+
+@Composable
+private fun EntitlementChip(
+    entitlement: com.miaclean.app.data.entitlement.Entitlement,
+    used: Int,
+    onClick: () -> Unit,
+) {
+    val label = when (entitlement) {
+        com.miaclean.app.data.entitlement.Entitlement.Pro -> stringResource(R.string.paywall_pro_chip)
+        com.miaclean.app.data.entitlement.Entitlement.Free -> stringResource(
+            R.string.paywall_budget_chip,
+            used,
+            com.miaclean.app.data.entitlement.EntitlementEvaluator.FREE_DELETES_PER_MONTH,
+        )
+    }
+    AssistChip(
+        onClick = onClick,
+        label = { Text(label) },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Filled.WorkspacePremium,
+                contentDescription = null,
+                modifier = Modifier.padding(end = 2.dp),
+            )
+        },
+        colors = AssistChipDefaults.assistChipColors(),
+    )
 }
 
 @Composable

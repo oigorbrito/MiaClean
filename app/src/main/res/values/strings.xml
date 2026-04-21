@@ -44,6 +44,18 @@
     <string name="category_video">Vídeos</string>
     <string name="category_other">Outros</string>
 
+    <!-- Freemium / paywall -->
+    <string name="paywall_title">Limite grátis atingido</string>
+    <string name="paywall_body_blocked">Você já usou %1$d de %2$d deleções grátis este mês. Faça upgrade para Pro para apagar itens ilimitados.</string>
+    <string name="paywall_body_partial">Apagamos %1$d itens, mas outros %2$d ficaram fora do seu limite grátis (%3$d/%4$d). Faça upgrade para Pro para apagar tudo de uma vez.</string>
+    <string name="paywall_upgrade">Fazer upgrade para Pro</string>
+    <string name="paywall_upgrade_stub">Compras ainda não disponíveis nesta versão. Em breve!</string>
+    <string name="paywall_dismiss">Agora não</string>
+    <string name="paywall_budget_chip">%1$d/%2$d grátis</string>
+    <string name="paywall_pro_chip">Pro</string>
+    <string name="paywall_debug_toggle_on">Ativar Pro (debug)</string>
+    <string name="paywall_debug_toggle_off">Desativar Pro (debug)</string>
+
     <!-- Work -->
     <string name="work_notification_channel_name">Scan em segundo plano</string>
     <string name="work_notification_channel_description">Notificações sobre progresso do scan.</string>
