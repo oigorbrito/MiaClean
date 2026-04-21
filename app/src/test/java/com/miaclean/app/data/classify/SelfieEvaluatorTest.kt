@@ -38,9 +38,9 @@ class SelfieEvaluatorTest {
     }
 
     @Test
-    fun `front-camera token in make or model flags selfie`() {
-        assertTrue(SelfieEvaluator.isSelfie(empty().copy(make = "Samsung Front")))
+    fun `front-camera token in model flags selfie`() {
         assertTrue(SelfieEvaluator.isSelfie(empty().copy(model = "SM-G998 (Frontal)")))
+        assertTrue(SelfieEvaluator.isSelfie(empty().copy(model = "Pixel 8 Front Cam")))
     }
 
     @Test
@@ -52,7 +52,6 @@ class SelfieEvaluatorTest {
     fun `rear camera tokens are ignored`() {
         val rear = empty().copy(
             lensModel = "Wide",
-            make = "Google",
             model = "Pixel 8",
             imageDescription = "Sunset at the beach",
         )
@@ -110,7 +109,6 @@ class SelfieEvaluatorTest {
     private fun empty() = SelfieSignals(
         focalLength35mm = null,
         lensModel = null,
-        make = null,
         model = null,
         imageDescription = null,
         faceCount = 0,

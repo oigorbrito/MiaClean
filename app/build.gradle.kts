@@ -1,3 +1,4 @@
+import java.io.File
 import java.net.URI
 
 plugins {
@@ -149,9 +150,18 @@ val downloadFaceDetectorModel by tasks.registering {
         val target = outputDir.get().file("face_detector.tflite").asFile
         if (target.exists() && target.length() > 0) return@doLast
         target.parentFile.mkdirs()
+        // Download to a sibling temp file and atomically rename on success so an interrupted
+        // transfer never leaves a truncated .tflite that the next build would happily treat as
+        // up-to-date.
+        val tmp = File(target.parentFile, "face_detector.tflite.part")
+        if (tmp.exists()) tmp.delete()
         try {
             URI(faceModelUrl).toURL().openStream().use { input ->
-                target.outputStream().use { output -> input.copyTo(output) }
+                tmp.outputStream().use { output -> input.copyTo(output) }
+            }
+            if (!tmp.renameTo(target)) {
+                tmp.copyTo(target, overwrite = true)
+                tmp.delete()
             }
             logger.lifecycle("Downloaded face_detector.tflite (${target.length() / 1024} KB)")
         } catch (t: Throwable) {
@@ -159,7 +169,8 @@ val downloadFaceDetectorModel by tasks.registering {
                 "Could not download MediaPipe face detector model: ${t.message}. " +
                     "SelfieDetector will skip face-based classification.",
             )
-            if (target.exists() && target.length() == 0L) target.delete()
+            if (tmp.exists()) tmp.delete()
+            if (target.exists()) target.delete()
         }
     }
 }

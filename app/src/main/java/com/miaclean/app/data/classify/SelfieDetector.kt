@@ -37,7 +37,11 @@ class SelfieDetector @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : Closeable {
 
-    private val faceDetector: FaceDetector? by lazy { tryCreateFaceDetector() }
+    // Hold the Lazy delegate itself so [close] can check `isInitialized()` and skip triggering
+    // MediaPipe's native initialization just to immediately tear it down. Without this, a caller
+    // that closes the detector before any scan runs would load the TFLite model for nothing.
+    private val faceDetectorLazy: Lazy<FaceDetector?> = lazy { tryCreateFaceDetector() }
+    private val faceDetector: FaceDetector? get() = faceDetectorLazy.value
 
     private fun tryCreateFaceDetector(): FaceDetector? {
         return try {
@@ -82,7 +86,6 @@ class SelfieDetector @Inject constructor(
                         /* defaultValue = */ 0,
                     ).takeIf { it > 0 },
                     lensModel = exif.getAttribute(ExifInterface.TAG_LENS_MODEL),
-                    make = exif.getAttribute(ExifInterface.TAG_MAKE),
                     model = exif.getAttribute(ExifInterface.TAG_MODEL),
                     imageDescription = exif.getAttribute(ExifInterface.TAG_IMAGE_DESCRIPTION),
                     faceCount = 0,
@@ -132,7 +135,7 @@ class SelfieDetector @Inject constructor(
     }
 
     override fun close() {
-        faceDetector?.close()
+        if (faceDetectorLazy.isInitialized()) faceDetectorLazy.value?.close()
     }
 
     private data class FaceSignals(val faceCount: Int, val largestFaceAreaRatio: Float)
@@ -140,7 +143,6 @@ class SelfieDetector @Inject constructor(
     private fun emptySignals() = SelfieSignals(
         focalLength35mm = null,
         lensModel = null,
-        make = null,
         model = null,
         imageDescription = null,
         faceCount = 0,
