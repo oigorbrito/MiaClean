@@ -105,7 +105,14 @@ fun OnboardingScreen(
                 Text(stringResource(R.string.onboarding_grant))
             }
         } else {
-            OutlinedButton(onClick = onContinue) {
+            OutlinedButton(onClick = {
+                // Persist completion BEFORE navigating so the background-scan observer in
+                // MiaCleanApp sees the flip and enqueues the worker while the user is still
+                // here. The write is fire-and-forget from the ViewModel — we don't block nav
+                // on DataStore I/O since the worst case is a one-cycle delay.
+                viewModel.markOnboardingComplete()
+                onContinue()
+            }) {
                 Text(stringResource(R.string.onboarding_continue))
             }
         }

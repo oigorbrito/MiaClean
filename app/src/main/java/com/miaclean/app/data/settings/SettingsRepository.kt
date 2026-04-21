@@ -31,6 +31,7 @@ class SettingsRepository @Inject constructor(
     private val backgroundScanKey = booleanPreferencesKey(KEY_BACKGROUND_SCAN)
     private val notifyKey = booleanPreferencesKey(KEY_NOTIFY_ON_NEW)
     private val lastNotifiedCountKey = intPreferencesKey(KEY_LAST_NOTIFIED_COUNT)
+    private val onboardingCompleteKey = booleanPreferencesKey(KEY_ONBOARDING_COMPLETE)
 
     val deleteStrategy: Flow<DeleteStrategy> = context.deletePrefsDataStore.data.map { prefs ->
         when (prefs[deleteStrategyKey]) {
@@ -61,11 +62,25 @@ class SettingsRepository @Inject constructor(
         prefs[lastNotifiedCountKey] ?: 0
     }
 
+    /**
+     * Gate for background scheduling: flipped once the user finishes the onboarding flow (media
+     * permissions + optional SAF). Default `false` so a fresh install doesn't enqueue the
+     * periodic worker before the user has any chance to grant permissions — otherwise the worker
+     * would still fire ~30h after install (flex window) and briefly promote to a foreground
+     * service that scans zero files. Independent from [backgroundScanEnabled] so the user can
+     * still opt out via Settings after completing onboarding.
+     */
+    val onboardingComplete: Flow<Boolean> = context.deletePrefsDataStore.data.map { prefs ->
+        prefs[onboardingCompleteKey] ?: false
+    }
+
     suspend fun currentBackgroundScanEnabled(): Boolean = backgroundScanEnabled.first()
 
     suspend fun currentNotifyOnNewDuplicates(): Boolean = notifyOnNewDuplicates.first()
 
     suspend fun currentLastNotifiedDuplicateCount(): Int = lastNotifiedDuplicateCount.first()
+
+    suspend fun currentOnboardingComplete(): Boolean = onboardingComplete.first()
 
     suspend fun setDeleteStrategy(strategy: DeleteStrategy) {
         context.deletePrefsDataStore.edit { prefs ->
@@ -91,10 +106,17 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    suspend fun setOnboardingComplete(complete: Boolean) {
+        context.deletePrefsDataStore.edit { prefs ->
+            prefs[onboardingCompleteKey] = complete
+        }
+    }
+
     private companion object {
         const val KEY_DELETE_STRATEGY = "delete_strategy"
         const val KEY_BACKGROUND_SCAN = "background_scan_enabled"
         const val KEY_NOTIFY_ON_NEW = "notify_on_new_duplicates"
         const val KEY_LAST_NOTIFIED_COUNT = "last_notified_duplicate_count"
+        const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
     }
 }
