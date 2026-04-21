@@ -51,11 +51,14 @@ class EnqueueScanAction : ActionCallback {
         }
         try {
             DuplicatesWidget().updateAll(context)
-        } catch (_: Throwable) {
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             // Launcher-process IPC; not fatal to the action itself. Same rationale as
             // [com.miaclean.app.widget.WidgetSummaryUpdater.refreshFromGroups]: widget
             // unpinned, host dead, or a transient binder error should never propagate out
-            // of an action callback and tear down the widget's tap handling.
+            // of an action callback and tear down the widget's tap handling. Cancellation
+            // is rethrown so structured concurrency (Glance framework tearing down the
+            // ActionCallback scope) is not short-circuited.
         }
     }
 }
