@@ -13,6 +13,7 @@ import androidx.work.WorkerParameters
 import com.miaclean.app.MiaCleanApp
 import com.miaclean.app.R
 import com.miaclean.app.data.ScanRepository
+import com.miaclean.app.data.settings.UserSettingsRepository
 import com.miaclean.app.domain.ScanProgress
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -24,11 +25,13 @@ class ScanWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
     private val scanRepository: ScanRepository,
+    private val userSettings: UserSettingsRepository,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
         setForeground(createForegroundInfo())
-        val final = scanRepository.scan().last()
+        val safUris = userSettings.currentSafTreeUris().toList()
+        val final = scanRepository.scan(additionalSafTreeUris = safUris).last()
         return when (final) {
             is ScanProgress.Done -> Result.success()
             is ScanProgress.Failed -> Result.failure()

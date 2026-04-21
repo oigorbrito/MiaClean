@@ -7,6 +7,9 @@
     <string name="onboarding_permission_rationale">Precisamos de acesso às suas mídias para detectar duplicadas. Nenhum arquivo é enviado para fora do seu dispositivo.</string>
     <string name="onboarding_grant">Conceder permissões</string>
     <string name="onboarding_saf_hint">Se o WhatsApp não aparecer automaticamente, você poderá selecioná-lo manualmente via seletor de pasta.</string>
+    <string name="onboarding_saf_title">Acesso à pasta do WhatsApp</string>
+    <string name="onboarding_saf_none">Nenhuma pasta concedida ainda.</string>
+    <string name="onboarding_saf_grant">Selecionar pasta do WhatsApp</string>
     <string name="onboarding_continue">Continuar</string>
 
     <!-- Scan -->
