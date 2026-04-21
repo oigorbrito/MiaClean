@@ -355,6 +355,12 @@ class ResultsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Flips the entitlement without going through Play Billing. The single caller is the
+     * overflow menu item in [ResultsScreen], which is itself gated behind `BuildConfig.DEBUG`.
+     * When real billing lands, delete this method — do not add new callers, because the UI
+     * gate is the only thing keeping this from being a freemium bypass vector.
+     */
     fun setProForDebug(isPro: Boolean) {
         viewModelScope.launch { entitlementRepository.setProForDebug(isPro) }
     }
