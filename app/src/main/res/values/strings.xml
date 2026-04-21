@@ -1,6 +1,12 @@
 <resources>
     <string name="app_name">MIA Clean</string>
 
+    <!-- Quick Settings tile + launcher shortcut -->
+    <string name="tile_scan_idle">Escanear agora</string>
+    <string name="tile_scan_running">Escaneando…</string>
+    <string name="shortcut_scan_short">Escanear</string>
+    <string name="shortcut_scan_long">Escanear agora</string>
+
     <!-- Onboarding -->
     <string name="onboarding_title">Bem-vindo ao MIA Clean</string>
     <string name="onboarding_subtitle">Encontre e remova mídias duplicadas do WhatsApp e da galeria com segurança.</string>

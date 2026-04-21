@@ -40,7 +40,33 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!--
+                Static app-shortcut target: long-press on the launcher icon surfaces
+                "Escanear agora", which fires this action against MainActivity. The activity
+                resolves the action explicitly in onCreate/onNewIntent; no implicit intent
+                resolution needed so no intent-filter for this action.
+            -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
+
+        <!--
+            Quick Settings tile. Users add it from the QS edit tray. The BIND_QUICK_SETTINGS_TILE
+            permission is system-signed; declaring it here only affirms that the service opts in
+            to the contract — it doesn't grant the app anything extra.
+        -->
+        <service
+            android:name=".work.ScanTileService"
+            android:exported="true"
+            android:icon="@android:drawable/stat_sys_download"
+            android:label="@string/tile_scan_idle"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
         <provider
             android:name="androidx.startup.InitializationProvider"
