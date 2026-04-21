@@ -17,6 +17,7 @@ import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -71,17 +72,26 @@ class MiaCleanApp : Application(), Configuration.Provider, ImageLoaderFactory {
     }
 
     /**
-     * Mirrors the user's `backgroundScanEnabled` preference into WorkManager. Subscribing with
-     * [distinctUntilChanged] means a rapid toggle flip only cancels/enqueues once. The schedule
-     * is keyed by a unique work name, so re-enqueueing while already enqueued is a cheap no-op
-     * thanks to [androidx.work.ExistingPeriodicWorkPolicy.KEEP].
+     * Mirrors the user's `backgroundScanEnabled` preference into WorkManager, gated on onboarding
+     * having been completed. On a fresh install both flags must resolve to `true` before the
+     * worker is scheduled — this prevents the periodic run from firing ~30h after install for a
+     * user who hasn't granted media permissions, which would briefly promote to a foreground
+     * service just to scan zero files.
+     *
+     * Subscribing with [distinctUntilChanged] after the `combine` means a rapid toggle flip on
+     * either flag only cancels/enqueues once. The schedule is keyed by a unique work name, so
+     * re-enqueueing while already enqueued is a cheap no-op thanks to
+     * [androidx.work.ExistingPeriodicWorkPolicy.KEEP].
      */
     private fun observeBackgroundScanToggle() {
         appScope.launch {
-            settingsRepository.backgroundScanEnabled
+            combine(
+                settingsRepository.onboardingComplete,
+                settingsRepository.backgroundScanEnabled,
+            ) { onboarded, enabled -> onboarded && enabled }
                 .distinctUntilChanged()
-                .collect { enabled ->
-                    if (enabled) periodicScanScheduler.enable()
+                .collect { shouldRun ->
+                    if (shouldRun) periodicScanScheduler.enable()
                     else periodicScanScheduler.disable()
                 }
         }
