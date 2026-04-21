@@ -2,6 +2,7 @@ package com.miaclean.app.data
 
 import android.net.Uri
 import com.miaclean.app.data.classify.MediaClassifier
+import com.miaclean.app.data.classify.SelfieDetector
 import com.miaclean.app.data.db.MediaHashDao
 import com.miaclean.app.data.db.MediaHashEntity
 import com.miaclean.app.data.hash.Md5Hasher
@@ -32,6 +33,7 @@ class ScanRepository @Inject constructor(
     private val md5Hasher: Md5Hasher,
     private val perceptualHasher: PerceptualHasher,
     private val classifier: MediaClassifier,
+    private val selfieDetector: SelfieDetector,
     private val dao: MediaHashDao,
 ) {
 
@@ -60,7 +62,7 @@ class ScanRepository @Inject constructor(
                         null
                     }
                     if (md5 != null) {
-                        val category = classifier.classify(item)
+                        val category = resolveCategory(item, uri)
                         dao.upsert(item.toEntity(md5 = md5, pHash = phash, category = category))
                     }
                 }
@@ -74,6 +76,18 @@ class ScanRepository @Inject constructor(
     }
 
     suspend fun loadGroups(): List<DuplicateGroup> = withContext(Dispatchers.IO) { buildGroups() }
+
+    /**
+     * Classifies [item] using the cheap metadata-only [MediaClassifier] first, then promotes a
+     * `Photo` to `Selfie` when EXIF or MediaPipe Face Detector agrees. The detector is never run
+     * on videos, screenshots, or memes — they already matched an earlier rung of the classifier
+     * and re-running the detector on them would only risk a false positive.
+     */
+    private fun resolveCategory(item: MediaItem, uri: Uri): MediaCategory {
+        val base = classifier.classify(item)
+        if (base != MediaCategory.Photo) return base
+        return if (selfieDetector.isSelfie(uri, item.sizeBytes)) MediaCategory.Selfie else base
+    }
 
     private suspend fun buildGroups(): List<DuplicateGroup> {
         val exact = dao.findExactDuplicates()
