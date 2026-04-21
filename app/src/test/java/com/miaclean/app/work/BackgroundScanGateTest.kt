@@ -39,15 +39,16 @@ class BackgroundScanGateTest {
         .launchIn(this)
 
     @Test
-    fun `both false on fresh install emits single false`() = runTest(StandardTestDispatcher()) {
-        val onboarded = MutableStateFlow(false)
-        val enabled = MutableStateFlow(true)
-        val sink = mutableListOf<Boolean>()
-        val job = collectGate(onboarded, enabled, sink)
-        advanceUntilIdle()
-        assertEquals(listOf(false), sink)
-        job.cancel()
-    }
+    fun `fresh install with onboarding incomplete emits single false`() =
+        runTest(StandardTestDispatcher()) {
+            val onboarded = MutableStateFlow(false)
+            val enabled = MutableStateFlow(true)
+            val sink = mutableListOf<Boolean>()
+            val job = collectGate(onboarded, enabled, sink)
+            advanceUntilIdle()
+            assertEquals(listOf(false), sink)
+            job.cancel()
+        }
 
     @Test
     fun `onboarding completion flips gate to true`() = runTest(StandardTestDispatcher()) {

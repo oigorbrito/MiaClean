@@ -119,6 +119,7 @@ dependencies {
 
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
+    implementation(libs.coroutines.play.services)
 
     implementation(libs.datastore.preferences)
 
@@ -126,6 +127,7 @@ dependencies {
     implementation(libs.coil.video)
 
     implementation(libs.mediapipe.tasks.vision)
+    implementation(libs.mlkit.text.recognition)
 
     implementation(libs.accompanist.permissions)
 
