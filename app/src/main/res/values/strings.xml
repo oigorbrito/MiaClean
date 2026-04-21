@@ -24,6 +24,11 @@
     <string name="results_title">Resultados</string>
     <string name="results_empty">Nenhuma duplicada encontrada ainda.</string>
     <string name="results_group">Grupo %1$d • %2$d itens • %3$s</string>
+    <string name="results_back">Voltar</string>
+    <string name="results_strategy_exact">Duplicadas exatas (MD5)</string>
+    <string name="results_strategy_phash">Visualmente similares (pHash)</string>
+    <string name="results_strategy_semantic">Similaridade semântica (MediaPipe)</string>
+    <string name="results_preview_close">Fechar</string>
 
     <!-- Work -->
     <string name="work_notification_channel_name">Scan em segundo plano</string>
