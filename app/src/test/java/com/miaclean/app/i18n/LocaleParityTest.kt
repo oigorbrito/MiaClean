@@ -57,16 +57,32 @@ class LocaleParityTest {
     }
 
     @Test
-    fun `no translation declares extra keys that base is missing`() {
-        val baseKeys = parseStrings(File(baseDir, "strings.xml")).keys
+    fun `no translation declares extra string or plural keys that base is missing`() {
+        val baseStringKeys = parseStrings(File(baseDir, "strings.xml")).keys
         for (translationDir in translations) {
             val translatedKeys = parseStrings(File(translationDir, "strings.xml")).keys
-            val extra = translatedKeys - baseKeys
+            val extra = translatedKeys - baseStringKeys
             if (extra.isNotEmpty()) {
                 fail(
                     "${translationDir.name}/strings.xml has keys not in base: $extra. " +
                         "Add them to values/strings.xml first or delete from the translation.",
                 )
+            }
+        }
+        // Symmetric check for plurals: catches stale entries left behind after a base removal
+        // (e.g. a plural renamed in EN but kept verbatim in pt-rBR, which would compile but
+        // wouldn't be resolvable via R.plurals).
+        for (fileName in listOf("plurals.xml", "widget_plurals.xml")) {
+            val basePluralKeys = parsePlurals(File(baseDir, fileName)).keys
+            for (translationDir in translations) {
+                val translatedKeys = parsePlurals(File(translationDir, fileName)).keys
+                val extra = translatedKeys - basePluralKeys
+                if (extra.isNotEmpty()) {
+                    fail(
+                        "${translationDir.name}/$fileName has plurals not in base: $extra. " +
+                            "Add them to values/$fileName first or delete from the translation.",
+                    )
+                }
             }
         }
     }
