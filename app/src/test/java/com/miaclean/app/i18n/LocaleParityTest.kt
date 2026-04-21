@@ -72,7 +72,7 @@ class LocaleParityTest {
     }
 
     @Test
-    fun `every base plural name and quantity is present in every translation`() {
+    fun `every base plural name and quantity is present in every translation with matching format args`() {
         val baseFiles = listOf("plurals.xml", "widget_plurals.xml")
         for (fileName in baseFiles) {
             val base = parsePlurals(File(baseDir, fileName))
@@ -87,6 +87,19 @@ class LocaleParityTest {
                         fail(
                             "Plural '$name' in ${translationDir.name}/$fileName missing " +
                                 "quantities: $missingQuantities",
+                        )
+                    }
+                    // Validate format-arg parity within each quantity item. Without this, a
+                    // translator dropping `%d` from `one` or `other` would crash with
+                    // `MissingFormatArgumentException` on the unlucky user whose count triggered
+                    // the broken branch, instead of failing CI here.
+                    for ((quantity, baseItem) in baseQuantities) {
+                        val translatedItem = translatedQuantities.getValue(quantity)
+                        assertEquals(
+                            "Format args mismatch for plural '$name' quantity='$quantity' " +
+                                "in ${translationDir.name}/$fileName",
+                            formatArgs(baseItem) + positionalArgs(baseItem),
+                            formatArgs(translatedItem) + positionalArgs(translatedItem),
                         )
                     }
                 }
@@ -125,13 +138,25 @@ class LocaleParityTest {
     }
 
     /**
-     * Extracts positional format args (`%1$s`, `%2$d`, etc.) from a resource string, returning
-     * them as a sorted set so the comparison is order-independent (translators may rearrange
-     * placeholders for natural phrasing) but presence-sensitive. An escaped `%%` is ignored so
-     * literal percent signs don't register as args.
+     * Extracts positional format args (`%1$s`, `%2$d`, `%3$f`, etc.) from a resource string,
+     * returning them as a sorted set so the comparison is order-independent (translators may
+     * rearrange placeholders for natural phrasing) but presence-sensitive. Accepts any
+     * single-letter conversion so floats / chars / hex don't silently bypass the check.
+     * An escaped `%%` is ignored so literal percent signs don't register as args.
      */
     private fun formatArgs(value: String): Set<String> {
-        val pattern = Regex("%(\\d+)\\$[sd]")
+        val pattern = Regex("%(\\d+)\\$[a-zA-Z]")
+        return pattern.findAll(value).map { it.value }.toSet()
+    }
+
+    /**
+     * Non-positional format args (`%d`, `%s`, `%f`, …) used primarily inside `<plurals>` items,
+     * where Android conventionally omits the positional `n$` because each item has exactly one
+     * count argument. Returned as a multiset-shaped set of "%d"/"%s" etc. so a translator who
+     * dropped the `%d` from `one` while keeping it in `other` fails the test.
+     */
+    private fun positionalArgs(value: String): Set<String> {
+        val pattern = Regex("%(?!\\d+\\$)[a-zA-Z]")
         return pattern.findAll(value).map { it.value }.toSet()
     }
 }
