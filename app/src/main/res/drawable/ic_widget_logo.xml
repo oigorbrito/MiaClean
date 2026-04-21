@@ -1,3 +1,12 @@
+<!--
+    Trash-can icon used in the widget title bar. Rewritten from an earlier draft where:
+      - the third slat sub-path was a triangle (`M14,11L14,18L12,18z`) instead of a rectangle;
+      - all sub-paths had the same winding direction, so with the default NonZero fill rule the
+        slats merged into the body instead of punching holes.
+    The slats now render as inverted openings via `android:fillType="evenOdd"`, matching Material's
+    `outline_delete_24` visual at 24dp. Two slats (at x=10-11 and x=13-14) rather than three — at
+    widget title-bar size the middle stripe is visual noise.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -6,5 +15,6 @@
     android:tint="?attr/colorControlNormal">
     <path
         android:fillColor="@android:color/white"
-        android:pathData="M9,3L9,4L4,4L4,6L20,6L20,4L15,4L15,3zM6,8L6,19A2,2 0,0 0,8 21L16,21A2,2 0,0 0,18 19L18,8zM10,11L12,11L12,18L10,18zM14,11L14,18L12,18zM8,11L10,11L10,18L8,18z" />
+        android:fillType="evenOdd"
+        android:pathData="M9,3L9,4L4,4L4,6L20,6L20,4L15,4L15,3L9,3zM6,8L6,19A2,2 0,0 0,8 21L16,21A2,2 0,0 0,18 19L18,8L6,8zM10,10L11,10L11,19L10,19L10,10zM13,10L14,10L14,19L13,19L13,10z" />
 </vector>
