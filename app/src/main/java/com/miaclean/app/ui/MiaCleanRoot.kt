@@ -10,11 +10,13 @@ import androidx.navigation.compose.rememberNavController
 import com.miaclean.app.ui.onboarding.OnboardingScreen
 import com.miaclean.app.ui.results.ResultsScreen
 import com.miaclean.app.ui.scan.ScanScreen
+import com.miaclean.app.ui.settings.SettingsScreen
 
 object Routes {
     const val Onboarding = "onboarding"
     const val Scan = "scan"
     const val Results = "results"
+    const val Settings = "settings"
 }
 
 @Composable
@@ -37,7 +39,13 @@ fun MiaCleanRoot() {
                 ScanScreen(onOpenResults = { nav.navigate(Routes.Results) })
             }
             composable(Routes.Results) {
-                ResultsScreen(onBack = { nav.popBackStack() })
+                ResultsScreen(
+                    onBack = { nav.popBackStack() },
+                    onOpenSettings = { nav.navigate(Routes.Settings) },
+                )
+            }
+            composable(Routes.Settings) {
+                SettingsScreen(onBack = { nav.popBackStack() })
             }
         }
     }

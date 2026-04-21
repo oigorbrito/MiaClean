@@ -74,6 +74,23 @@ class EntitlementRepository @Inject constructor(
         }
     }
 
+    /**
+     * Reverts [count] deletions from the current bucket after a user-initiated undo (restore
+     * from trash). Clamped at 0 so a stale undo (e.g. after the month rolled over and the bucket
+     * already reset) can't push the counter negative. No-op on bucket mismatch — if the current
+     * bucket isn't the one we charged against, there's nothing sane to subtract from.
+     */
+    suspend fun recoverDeletions(count: Int) {
+        if (count <= 0) return
+        val bucket = currentBucket()
+        context.entitlementDataStore.edit { prefs ->
+            val storedBucket = prefs[deletesBucketKey]
+            if (storedBucket != bucket) return@edit
+            val previous = prefs[deletesCountKey] ?: 0
+            prefs[deletesCountKey] = (previous - count).coerceAtLeast(0)
+        }
+    }
+
     /** Debug/stub: flip the Pro flag without a real purchase. Wire to a settings toggle. */
     suspend fun setProForDebug(isPro: Boolean) {
         context.entitlementDataStore.edit { prefs ->
