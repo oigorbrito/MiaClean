@@ -1,7 +1,6 @@
 package com.miaclean.app.widget
 
 import android.content.Context
-import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.updateAll
 import com.miaclean.app.data.settings.SettingsRepository
 import com.miaclean.app.domain.DuplicateGroup
@@ -25,8 +24,8 @@ import javax.inject.Singleton
  *    bound on what a batch-delete would actually free.
  *
  * Invariants worth preserving if this is ever restructured:
- *  - The summary write precedes [GlanceAppWidgetManager.updateAll]. Calling updateAll before the
- *    DataStore edit commits would race against the widget's `provideGlance` read and briefly
+ *  - The summary write precedes [androidx.glance.appwidget.updateAll]. Calling updateAll before
+ *    the DataStore edit commits would race against the widget's `provideGlance` read and briefly
  *    render stale numbers on a pinned widget.
  *  - Every failure mode — DataStore write and `updateAll` IPC alike — is swallowed. The
  *    launcher process can be dead, the widget can be unpinned, the disk can be full, or Preferences
