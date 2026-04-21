@@ -98,8 +98,8 @@ class LocaleParityTest {
                         assertEquals(
                             "Format args mismatch for plural '$name' quantity='$quantity' " +
                                 "in ${translationDir.name}/$fileName",
-                            formatArgs(baseItem) + positionalArgs(baseItem),
-                            formatArgs(translatedItem) + positionalArgs(translatedItem),
+                            formatArgs(baseItem) + nonPositionalArgs(baseItem),
+                            formatArgs(translatedItem) + nonPositionalArgs(translatedItem),
                         )
                     }
                 }
@@ -142,21 +142,23 @@ class LocaleParityTest {
      * returning them as a sorted set so the comparison is order-independent (translators may
      * rearrange placeholders for natural phrasing) but presence-sensitive. Accepts any
      * single-letter conversion so floats / chars / hex don't silently bypass the check.
-     * An escaped `%%` is ignored so literal percent signs don't register as args.
+     * Literal escaped percent signs (`%%`) are stripped beforehand so they don't misregister —
+     * without that pre-pass, `%%1$d` (a literal `%1$d`) would match from the second `%`.
      */
     private fun formatArgs(value: String): Set<String> {
         val pattern = Regex("%(\\d+)\\$[a-zA-Z]")
-        return pattern.findAll(value).map { it.value }.toSet()
+        return pattern.findAll(value.replace("%%", "")).map { it.value }.toSet()
     }
 
     /**
-     * Non-positional format args (`%d`, `%s`, `%f`, …) used primarily inside `<plurals>` items,
-     * where Android conventionally omits the positional `n$` because each item has exactly one
-     * count argument. Returned as a multiset-shaped set of "%d"/"%s" etc. so a translator who
-     * dropped the `%d` from `one` while keeping it in `other` fails the test.
+     * Extracts non-positional format args (`%d`, `%s`, `%f`, …) used primarily inside
+     * `<plurals>` items, where Android conventionally omits the positional `n$` because each
+     * item has exactly one count argument. Returned as a set of "%d"/"%s" etc. so a translator
+     * who dropped the `%d` from `one` while keeping it in `other` fails the test. Literal
+     * `%%` is stripped beforehand for the same reason as in [formatArgs].
      */
-    private fun positionalArgs(value: String): Set<String> {
+    private fun nonPositionalArgs(value: String): Set<String> {
         val pattern = Regex("%(?!\\d+\\$)[a-zA-Z]")
-        return pattern.findAll(value).map { it.value }.toSet()
+        return pattern.findAll(value.replace("%%", "")).map { it.value }.toSet()
     }
 }
