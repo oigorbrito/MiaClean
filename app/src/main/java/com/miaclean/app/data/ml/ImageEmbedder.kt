@@ -30,7 +30,12 @@ class ImageEmbedderWrapper @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : Closeable {
 
-    private val embedder: ImageEmbedder? by lazy { tryCreateEmbedder() }
+    // Hold the Lazy delegate itself so [close] can check `isInitialized()` and skip triggering
+    // MediaPipe's native initialization just to immediately tear it down. Without this, a caller
+    // that closes the wrapper before any scan runs would load the TFLite model for nothing.
+    // Mirrors the pattern in `SelfieDetector`.
+    private val embedderLazy: Lazy<ImageEmbedder?> = lazy { tryCreateEmbedder() }
+    private val embedder: ImageEmbedder? get() = embedderLazy.value
 
     private fun tryCreateEmbedder(): ImageEmbedder? {
         return try {
@@ -77,7 +82,9 @@ class ImageEmbedderWrapper @Inject constructor(
     private fun Embedding.toFloats(): FloatArray = floatEmbedding()
 
     override fun close() {
-        embedder?.close()
+        if (embedderLazy.isInitialized()) {
+            embedderLazy.value?.close()
+        }
     }
 
     private companion object {

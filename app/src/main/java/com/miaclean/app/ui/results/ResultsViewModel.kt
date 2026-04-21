@@ -22,6 +22,7 @@ import com.miaclean.app.data.settings.SettingsRepository
 import com.miaclean.app.domain.DuplicateGroup
 import com.miaclean.app.domain.MediaCategory
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -404,14 +405,17 @@ class ResultsViewModel @Inject constructor(
             flushPendingPaywall()
             return
         }
+        // Clear the deferred paywall *synchronously* before the DB coroutine launches — the
+        // budget was refunded, so the PartialAllow paywall is no longer accurate, and doing
+        // this eagerly closes the narrow window where a concurrent `requestDelete()` could
+        // otherwise land a new `pendingPaywallAfterDelete` that the coroutine would then
+        // clobber. Dropping the stale paywall on the floor rather than showing "you dropped 5
+        // items" copy after those 5 items are back.
+        pendingPaywallAfterDelete = null
         viewModelScope.launch {
             mediaHashDao.upsertAll(snapshot.entities)
             entitlementRepository.recoverDeletions(snapshot.mediaIds.size)
             publishGroups(scanRepository.loadGroups())
-            // Restore succeeded — budget was refunded, so the PartialAllow paywall is no longer
-            // accurate. Drop it on the floor rather than showing stale "you dropped 5 items"
-            // copy after those 5 items are back.
-            pendingPaywallAfterDelete = null
         }
     }
 
@@ -432,13 +436,17 @@ class ResultsViewModel @Inject constructor(
             try {
                 val intentSender = mediaDeleter.buildRestoreRequest(snapshot.uris)
                 _deleteEvents.send(DeleteEvent.LaunchIntentSender(intentSender))
-            } catch (t: Throwable) {
+            } catch (e: CancellationException) {
+                // Re-throw so structured concurrency stays intact; the ViewModel is being torn
+                // down and the subsequent channel send would have rethrown anyway.
+                throw e
+            } catch (e: Exception) {
                 // `buildRestoreRequest` can throw if the URIs were purged out from under us
                 // (user cleared the trash from Files, 30-day expiry, permission revoked). Without
                 // this catch the coroutine dies with `deleteInFlight = true` latched forever,
                 // bricking every subsequent delete until the user kills the app. Roll back local
                 // state and surface a snackbar so the user knows undo failed.
-                Log.w(TAG, "Failed to build restore request; rolling back undo state", t)
+                Log.w(TAG, "Failed to build restore request; rolling back undo state", e)
                 dialogMode = DialogMode.Idle
                 deleteInFlight = false
                 lastTrashedDeletion = null
