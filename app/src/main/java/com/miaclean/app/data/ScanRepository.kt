@@ -1,6 +1,7 @@
 package com.miaclean.app.data
 
 import android.net.Uri
+import com.miaclean.app.data.classify.MediaClassifier
 import com.miaclean.app.data.db.MediaHashDao
 import com.miaclean.app.data.db.MediaHashEntity
 import com.miaclean.app.data.hash.Md5Hasher
@@ -8,6 +9,7 @@ import com.miaclean.app.data.hash.PerceptualHasher
 import com.miaclean.app.data.scan.MediaStoreScanner
 import com.miaclean.app.data.scan.SafWhatsAppScanner
 import com.miaclean.app.domain.DuplicateGroup
+import com.miaclean.app.domain.MediaCategory
 import com.miaclean.app.domain.MediaItem
 import com.miaclean.app.domain.ScanProgress
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +31,7 @@ class ScanRepository @Inject constructor(
     private val safScanner: SafWhatsAppScanner,
     private val md5Hasher: Md5Hasher,
     private val perceptualHasher: PerceptualHasher,
+    private val classifier: MediaClassifier,
     private val dao: MediaHashDao,
 ) {
 
@@ -57,7 +60,8 @@ class ScanRepository @Inject constructor(
                         null
                     }
                     if (md5 != null) {
-                        dao.upsert(item.toEntity(md5 = md5, pHash = phash))
+                        val category = classifier.classify(item)
+                        dao.upsert(item.toEntity(md5 = md5, pHash = phash, category = category))
                     }
                 }
                 send(ScanProgress.Running(processed = index + 1, total = total))
@@ -128,7 +132,11 @@ class ScanRepository @Inject constructor(
     }
 }
 
-private fun MediaItem.toEntity(md5: String, pHash: String?): MediaHashEntity = MediaHashEntity(
+private fun MediaItem.toEntity(
+    md5: String,
+    pHash: String?,
+    category: MediaCategory,
+): MediaHashEntity = MediaHashEntity(
     mediaId = id,
     uri = uri,
     displayName = displayName,
@@ -141,6 +149,7 @@ private fun MediaItem.toEntity(md5: String, pHash: String?): MediaHashEntity = M
     pHash = pHash,
     embeddingHash = null,
     lastScannedMs = System.currentTimeMillis(),
+    category = category.name,
 )
 
 private fun MediaHashEntity.toMediaItem(): MediaItem = MediaItem(
@@ -152,4 +161,5 @@ private fun MediaHashEntity.toMediaItem(): MediaItem = MediaItem(
     dateTakenMs = dateTakenMs,
     relativePath = relativePath,
     isFromWhatsApp = isWhatsApp,
+    category = runCatching { MediaCategory.valueOf(category) }.getOrDefault(MediaCategory.Other),
 )
