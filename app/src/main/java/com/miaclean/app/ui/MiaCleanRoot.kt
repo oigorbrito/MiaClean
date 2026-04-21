@@ -33,8 +33,13 @@ fun MiaCleanRoot(pendingOpenResults: MutableState<Boolean> = mutableStateOf(fals
     LaunchedEffect(pendingOpenResults.value) {
         if (pendingOpenResults.value) {
             nav.navigate(Routes.Results) {
-                // Preserve the user's place in the graph — if they're already on Results this
-                // is a no-op, if they're deep on Settings this brings Results to the top.
+                // On cold start from a notification tap, Onboarding is the start destination
+                // but the user already completed it (otherwise the worker never produced a
+                // duplicate to notify about). Pop Onboarding off the stack so pressing Back on
+                // Results exits the app instead of dumping them into the first-run flow.
+                popUpTo(Routes.Onboarding) { inclusive = true }
+                // If the activity is already alive on a different screen (e.g. Settings) this
+                // collapses the stack to a single Results entry rather than stacking duplicates.
                 launchSingleTop = true
             }
             pendingOpenResults.value = false

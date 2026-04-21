@@ -36,7 +36,7 @@ class ScanWorker @AssistedInject constructor(
         val final = scanRepository.scan(additionalSafTreeUris = safUris).last()
         return when (final) {
             is ScanProgress.Done -> {
-                maybeNotifyDelta(final.duplicates)
+                maybeNotifyDelta()
                 Result.success()
             }
             is ScanProgress.Failed -> Result.failure()
@@ -46,26 +46,40 @@ class ScanWorker @AssistedInject constructor(
 
     /**
      * Posts the "N new duplicates" notification when two conditions hold:
-     *   1. The absolute duplicate count went UP since the last notification (a DELTA, not a
-     *      snapshot — otherwise the user sees the same "5 duplicates" every 24h forever).
+     *   1. The EXCESS duplicate count (items the user could delete while still keeping one copy
+     *      per group) went UP since the last notification (a DELTA, not a snapshot — otherwise
+     *      the user sees the same "5 duplicates" every 24h forever).
      *   2. The user still has `notifyOnNewDuplicates` enabled in Settings.
+     *
+     * "Excess" and "reclaimable" semantics are subtly different from `ScanProgress.Done.duplicates`
+     * (which counts every item in every group, including the keeper). The worker-side notification
+     * exists to entice the user to open the app and clean — so both numbers (count + bytes) model
+     * what would actually happen on a batch-delete that keeps one copy per group.
      *
      * The "last notified" counter is only advanced after a successful post so that a cycle where
      * POST_NOTIFICATIONS is revoked or the permission check silently fails doesn't "burn" the
      * delta — the next cycle tries again against the same baseline.
      */
-    private suspend fun maybeNotifyDelta(currentDuplicates: Int) {
+    private suspend fun maybeNotifyDelta() {
         if (!settingsRepository.currentNotifyOnNewDuplicates()) return
+        val groups = scanRepository.loadGroups()
+        val excessCount = groups.sumOf { (it.items.size - 1).coerceAtLeast(0) }
         val baseline = settingsRepository.currentLastNotifiedDuplicateCount()
-        val delta = DuplicateDelta.computeNotifiableDelta(currentDuplicates, baseline) ?: return
+        val delta = DuplicateDelta.computeNotifiableDelta(excessCount, baseline) ?: return
 
-        val reclaimable = scanRepository.loadGroups().sumOf { it.totalBytes }
+        // Reclaimable = total group bytes minus one keeper per group. Using the smallest item as
+        // the "keeper" is a conservative (upper-bound) estimate of what the user could actually
+        // free — aligns with the notification's "approximately X" wording.
+        val reclaimable = groups.sumOf { group ->
+            val keeper = group.items.minOfOrNull { it.sizeBytes } ?: 0L
+            (group.totalBytes - keeper).coerceAtLeast(0L)
+        }
         val posted = notifier.notifyIfNewDuplicatesFound(
             newDuplicateDelta = delta,
             reclaimableBytes = reclaimable,
         )
         if (posted) {
-            settingsRepository.setLastNotifiedDuplicateCount(currentDuplicates)
+            settingsRepository.setLastNotifiedDuplicateCount(excessCount)
         }
     }
 

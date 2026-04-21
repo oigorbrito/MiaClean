@@ -77,8 +77,16 @@ class DuplicateFinderNotifier @Inject constructor(
             .setContentIntent(contentIntent)
             .build()
 
-        NotificationManagerCompat.from(context).notify(FINDER_NOTIFICATION_ID, notification)
-        return true
+        // Wrap the post in try/catch for OEM ROMs (e.g. some Samsung/Huawei builds) that have
+        // historically thrown SecurityException from the notification manager even when the
+        // standard POST_NOTIFICATIONS check returns GRANTED. Returning false on failure keeps
+        // the caller from advancing the baseline, so the next scan cycle retries cleanly.
+        return try {
+            NotificationManagerCompat.from(context).notify(FINDER_NOTIFICATION_ID, notification)
+            true
+        } catch (_: SecurityException) {
+            false
+        }
     }
 
     private fun hasPostPermission(): Boolean {

@@ -27,10 +27,10 @@ class PeriodicScanScheduler @Inject constructor(
 
     fun enable() {
         val constraints = Constraints.Builder()
-            // Scan touches the local filesystem only; unmetered is declared mainly to hint the
-            // scheduler that we'd prefer wifi windows (where the device is more likely to be
-            // idle/charging) rather than to actually consume bandwidth.
-            .setRequiredNetworkType(NetworkType.UNMETERED)
+            // The scan is entirely local — MediaStore + file hashing — so no network is required.
+            // WorkManager constraints are hard gates (not hints): requiring UNMETERED would defer
+            // the worker indefinitely on mobile-only users, so keep this explicitly NOT_REQUIRED.
+            .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
             .setRequiresBatteryNotLow(true)
             .setRequiresCharging(false)
             .setRequiresDeviceIdle(false)
