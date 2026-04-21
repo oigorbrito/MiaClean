@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -99,7 +100,7 @@ private fun BillingContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 CircularProgressIndicator(strokeWidth = 2.dp)
-                Spacer(Modifier.padding(horizontal = 8.dp))
+                Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.paywall_loading))
             }
         }

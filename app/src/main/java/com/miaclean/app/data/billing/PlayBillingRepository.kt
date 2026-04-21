@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -81,8 +82,21 @@ class PlayBillingRepository @Inject constructor(
      * `queryProductDetailsAsync`. Required as the input to [BillingFlowParams.Builder] — a
      * [BillingProduct] alone isn't enough because Play Billing wants the original opaque
      * handle back.
+     *
+     * Backed by [ConcurrentHashMap] because writes happen on [Dispatchers.Default] (via
+     * `refreshProducts()`) while `launchPurchaseFlow()` reads it from the main thread when the
+     * user taps the purchase CTA. A plain `HashMap` offers no guarantees across a
+     * `clear() + put(...)` cycle and could theoretically surface a stale/corrupted read.
      */
-    private val productDetailsById = mutableMapOf<String, ProductDetails>()
+    private val productDetailsById = ConcurrentHashMap<String, ProductDetails>()
+
+    /**
+     * True while a [BillingClient.startConnection] attempt is in flight. Prevents a second
+     * `startConnection` from being issued if `refreshPurchasesOnResume()` races with
+     * `start()` (e.g. Application.onCreate + MainActivity.onResume on cold launch). The
+     * flag is flipped to false whenever the listener resolves or a reconnect is scheduled.
+     */
+    private var connecting = false
 
     /** Current backoff for reconnect retries, doubles on each consecutive failure. */
     private var reconnectBackoffMillis = INITIAL_RECONNECT_BACKOFF_MS
@@ -168,8 +182,11 @@ class PlayBillingRepository @Inject constructor(
     }
 
     private fun connect() {
+        if (connecting || billingClient.isReady) return
+        connecting = true
         billingClient.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(billingResult: BillingResult) {
+                connecting = false
                 when (billingResult.responseCode) {
                     BillingClient.BillingResponseCode.OK -> {
                         reconnectBackoffMillis = INITIAL_RECONNECT_BACKOFF_MS
@@ -193,6 +210,7 @@ class PlayBillingRepository @Inject constructor(
             }
 
             override fun onBillingServiceDisconnected() {
+                connecting = false
                 _state.value = BillingState.Unavailable(
                     BillingState.Reason.BillingServiceDisconnected,
                 )
@@ -268,13 +286,27 @@ class PlayBillingRepository @Inject constructor(
         }
     }
 
+    /**
+     * Refreshes the cached entitlement from the Play Store. If **either** underlying query
+     * fails (network blip, transient Play Services outage), we skip the entitlement write
+     * entirely instead of treating a failed query as "no purchases exist". The alternative —
+     * passing an empty list into [handlePurchases] — would flip a paying user to Free on
+     * every resume during a transient error, which is unacceptable UX (the user paid; the
+     * worst we should do on an error is leave the previous entitlement untouched until the
+     * next successful query).
+     */
     private suspend fun refreshPurchases() {
-        val subs = queryPurchases(BillingClient.ProductType.SUBS)
-        val inApp = queryPurchases(BillingClient.ProductType.INAPP)
+        val subs = queryPurchases(BillingClient.ProductType.SUBS) ?: return
+        val inApp = queryPurchases(BillingClient.ProductType.INAPP) ?: return
         handlePurchases(subs + inApp)
     }
 
-    private suspend fun queryPurchases(productType: String): List<Purchase> {
+    /**
+     * Returns the list of purchases for [productType], or `null` if the underlying
+     * `queryPurchasesAsync` failed. Callers must treat `null` as "unknown — do not mutate
+     * entitlement" and an empty list as "confirmed empty — safe to revoke Pro".
+     */
+    private suspend fun queryPurchases(productType: String): List<Purchase>? {
         val params = QueryPurchasesParams.newBuilder()
             .setProductType(productType)
             .build()
@@ -288,7 +320,7 @@ class PlayBillingRepository @Inject constructor(
                         "queryPurchases($productType) failed (${result.responseCode}): " +
                             result.debugMessage,
                     )
-                    cont.resume(emptyList())
+                    cont.resume(null)
                 }
             }
         }
@@ -333,11 +365,16 @@ class PlayBillingRepository @Inject constructor(
             BillingProductType.SubscriptionMonthly,
             BillingProductType.SubscriptionYearly,
             -> {
+                // Take the **last** pricing phase, which Play guarantees to be the recurring
+                // base plan. If we took the first phase and the product had a free trial or
+                // introductory offer configured in Play Console, we'd render e.g. "R$ 0,00 /
+                // 7 days" as the headline price. The last phase is always the steady-state
+                // subscription cost — what the user will actually pay after any trial ends.
                 val phase = subscriptionOfferDetails
                     ?.firstOrNull()
                     ?.pricingPhases
                     ?.pricingPhaseList
-                    ?.firstOrNull()
+                    ?.lastOrNull()
                     ?: return null
                 BillingProduct(
                     productId = productId,
