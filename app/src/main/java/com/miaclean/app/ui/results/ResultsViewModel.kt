@@ -204,14 +204,14 @@ class ResultsViewModel @Inject constructor(
     private suspend fun refreshAfterDelete(removed: Set<Long>) {
         _selection.value = _selection.value - removed
         val groups = scanRepository.loadGroups()
-        _groups.value = groups
-        // If the active filter no longer has any matching groups, clear it so the user is not
-        // stranded on an empty screen with no filter chip visible to reset it (the chip row is
-        // hidden when only one category remains).
+        // Clear a now-orphan filter BEFORE publishing the new groups so the derived
+        // [filteredGroups] flow never recomputes against "new groups + stale filter" — which
+        // would otherwise produce a transient empty list and flash an empty-state screen.
         val activeFilter = _categoryFilter.value
         if (activeFilter != null && groups.none { it.dominantCategory == activeFilter }) {
             _categoryFilter.value = null
         }
+        _groups.value = groups
     }
 
     sealed interface SelectionSummary {
