@@ -4,8 +4,32 @@
         <item quantity="one">%d pasta concedida.</item>
         <item quantity="other">%d pastas concedidas.</item>
     </plurals>
-    <plurals name="finder_notification_title">
-        <item quantity="one">%d duplicada nova encontrada</item>
-        <item quantity="other">%d duplicadas novas encontradas</item>
+    <plurals name="finder_notification_summary_title">
+        <item quantity="one">%d duplicada nova</item>
+        <item quantity="other">%d duplicadas novas</item>
+    </plurals>
+    <plurals name="finder_notification_child_title_screenshot">
+        <item quantity="one">%d nova screenshot</item>
+        <item quantity="other">%d novas screenshots</item>
+    </plurals>
+    <plurals name="finder_notification_child_title_selfie">
+        <item quantity="one">%d nova selfie</item>
+        <item quantity="other">%d novas selfies</item>
+    </plurals>
+    <plurals name="finder_notification_child_title_meme">
+        <item quantity="one">%d novo meme</item>
+        <item quantity="other">%d novos memes</item>
+    </plurals>
+    <plurals name="finder_notification_child_title_photo">
+        <item quantity="one">%d nova foto</item>
+        <item quantity="other">%d novas fotos</item>
+    </plurals>
+    <plurals name="finder_notification_child_title_video">
+        <item quantity="one">%d novo vídeo</item>
+        <item quantity="other">%d novos vídeos</item>
+    </plurals>
+    <plurals name="finder_notification_child_title_other">
+        <item quantity="one">%d novo arquivo</item>
+        <item quantity="other">%d novos arquivos</item>
     </plurals>
 </resources>

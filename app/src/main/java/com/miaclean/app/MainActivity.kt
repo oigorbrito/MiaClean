@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.lifecycleScope
 import com.miaclean.app.data.billing.PlayBillingRepository
+import com.miaclean.app.domain.MediaCategory
 import com.miaclean.app.ui.MiaCleanRoot
 import com.miaclean.app.ui.theme.MiaCleanTheme
 import com.miaclean.app.work.ScanDispatchResult
@@ -42,6 +43,15 @@ class MainActivity : ComponentActivity() {
      */
     private val pendingOpenResults = mutableStateOf(false)
 
+    /**
+     * When the Results deep-link originates from a category-specific child notification (PR #21
+     * bundle), this holds the [MediaCategory] to preselect on the filter chip row. Consumed once
+     * by [com.miaclean.app.ui.results.ResultsScreen] and then cleared. Independent from
+     * [pendingOpenResults] so the summary notification path (no filter) doesn't accidentally
+     * stomp a previously-stored filter on re-entry.
+     */
+    private val pendingCategoryFilter = mutableStateOf<MediaCategory?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -49,7 +59,10 @@ class MainActivity : ComponentActivity() {
         consumeScanNowAction(intent)
         setContent {
             MiaCleanTheme {
-                MiaCleanRoot(pendingOpenResults = pendingOpenResults)
+                MiaCleanRoot(
+                    pendingOpenResults = pendingOpenResults,
+                    pendingCategoryFilter = pendingCategoryFilter,
+                )
             }
         }
     }
@@ -67,11 +80,20 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun consumeOpenResultsExtra(intent: Intent?) {
-        if (intent?.getBooleanExtra(EXTRA_OPEN_RESULTS, false) == true) {
-            pendingOpenResults.value = true
-            // Strip the extra so a rotation-driven recreate doesn't re-trigger the deep-link
-            // after the user has already navigated elsewhere.
-            intent.removeExtra(EXTRA_OPEN_RESULTS)
+        if (intent?.getBooleanExtra(EXTRA_OPEN_RESULTS, false) != true) return
+        pendingOpenResults.value = true
+        // Strip the extra so a rotation-driven recreate doesn't re-trigger the deep-link
+        // after the user has already navigated elsewhere.
+        intent.removeExtra(EXTRA_OPEN_RESULTS)
+
+        // Only try to parse the category filter on the same pass. String extras not recognised
+        // by MediaCategory (future enum drift, malformed external intents) are dropped without
+        // raising — the filter is a hint, not a security boundary.
+        val rawCategory = intent.getStringExtra(EXTRA_CATEGORY_FILTER)
+        if (rawCategory != null) {
+            val parsed = runCatching { MediaCategory.valueOf(rawCategory) }.getOrNull()
+            pendingCategoryFilter.value = parsed
+            intent.removeExtra(EXTRA_CATEGORY_FILTER)
         }
     }
 
@@ -107,6 +129,13 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_OPEN_RESULTS = "com.miaclean.app.EXTRA_OPEN_RESULTS"
+
+        /**
+         * Optional companion to [EXTRA_OPEN_RESULTS]. Value is [MediaCategory.name]; anything
+         * else is ignored. Populated by child notifications in the PR #21 bundle so tapping
+         * "3 novas selfies" lands the user on Results already filtered.
+         */
+        const val EXTRA_CATEGORY_FILTER = "com.miaclean.app.EXTRA_CATEGORY_FILTER"
         const val ACTION_SCAN_NOW = "com.miaclean.app.action.SCAN_NOW"
     }
 }

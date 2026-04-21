@@ -45,41 +45,63 @@ class ScanWorker @AssistedInject constructor(
     }
 
     /**
-     * Posts the "N new duplicates" notification when two conditions hold:
-     *   1. The EXCESS duplicate count (items the user could delete while still keeping one copy
-     *      per group) went UP since the last notification (a DELTA, not a snapshot — otherwise
-     *      the user sees the same "5 duplicates" every 24h forever).
-     *   2. The user still has `notifyOnNewDuplicates` enabled in Settings.
+     * Buckets the current cache by [com.miaclean.app.domain.DuplicateGroup.dominantCategory],
+     * computes per-category deltas against the persisted baseline, and posts either a single
+     * notification (one category changed) or a grouped bundle (≥2 categories changed).
      *
-     * "Excess" and "reclaimable" semantics are subtly different from `ScanProgress.Done.duplicates`
-     * (which counts every item in every group, including the keeper). The worker-side notification
-     * exists to entice the user to open the app and clean — so both numbers (count + bytes) model
-     * what would actually happen on a batch-delete that keeps one copy per group.
+     * "Excess" and "reclaimable" semantics: for each group, we count items minus one (the copy
+     * a batch-delete would keep) and sum bytes minus the smallest item (upper-bound free-space
+     * estimate, aligning with the notification's `~` wording). Same invariant as PR #16 — just
+     * partitioned by category.
      *
-     * The "last notified" counter is only advanced after a successful post so that a cycle where
-     * POST_NOTIFICATIONS is revoked or the permission check silently fails doesn't "burn" the
-     * delta — the next cycle tries again against the same baseline.
+     * Baseline advances only for categories we actually posted about; unchanged categories keep
+     * their previous value so a deleted category (count went to zero) still counts as "nothing
+     * to re-notify" on the next cycle without being forgotten.
+     *
+     * Migration from PR #16's single-int baseline: the very first bundle-aware cycle on an
+     * upgraded device sees `lastNotifiedDuplicateCountsByCategory == emptyMap()` while
+     * `lastNotifiedDuplicateCount > 0`. Instead of treating every category as baseline zero
+     * (which would splat 6 notifs), we seed each category's baseline with its current excess
+     * and skip notifying this cycle. The user misses one delta on the upgrade cycle in exchange
+     * for a clean, non-spammy transition.
      */
     private suspend fun maybeNotifyDelta() {
         if (!settingsRepository.currentNotifyOnNewDuplicates()) return
         val groups = scanRepository.loadGroups()
-        val excessCount = groups.sumOf { (it.items.size - 1).coerceAtLeast(0) }
-        val baseline = settingsRepository.currentLastNotifiedDuplicateCount()
-        val delta = DuplicateDelta.computeNotifiableDelta(excessCount, baseline) ?: return
 
-        // Reclaimable = total group bytes minus one keeper per group. Using the smallest item as
-        // the "keeper" is a conservative (upper-bound) estimate of what the user could actually
-        // free — aligns with the notification's "approximately X" wording.
-        val reclaimable = groups.sumOf { group ->
-            val keeper = group.items.minOfOrNull { it.sizeBytes } ?: 0L
-            (group.totalBytes - keeper).coerceAtLeast(0L)
+        val currentByCategory = groups
+            .groupBy { it.dominantCategory }
+            .mapValues { (_, groupsInCategory) ->
+                val excess = groupsInCategory.sumOf { (it.items.size - 1).coerceAtLeast(0) }
+                val reclaimable = groupsInCategory.sumOf { group ->
+                    val keeper = group.items.minOfOrNull { it.sizeBytes } ?: 0L
+                    (group.totalBytes - keeper).coerceAtLeast(0L)
+                }
+                CategoryBucket(excess = excess, reclaimableBytes = reclaimable)
+            }
+
+        val baselineByCategory = settingsRepository.currentLastNotifiedDuplicateCountsByCategory()
+        val legacyBaseline = settingsRepository.currentLastNotifiedDuplicateCount()
+        if (baselineByCategory.isEmpty() && legacyBaseline > 0) {
+            val seed = currentByCategory.mapValues { (_, bucket) -> bucket.excess }
+                .filterValues { it > 0 }
+            settingsRepository.setLastNotifiedDuplicateCountsByCategory(seed)
+            // Consume the legacy counter so subsequent cycles don't re-trigger migration if the
+            // user clears the per-category map (e.g. Settings → restore defaults in a future PR).
+            settingsRepository.setLastNotifiedDuplicateCount(0)
+            return
         }
-        val posted = notifier.notifyIfNewDuplicatesFound(
-            newDuplicateDelta = delta,
-            reclaimableBytes = reclaimable,
-        )
+
+        val deltas = DuplicateDelta.computeByCategory(currentByCategory, baselineByCategory)
+        if (deltas.isEmpty()) return
+
+        val posted = notifier.notifyNewDuplicates(deltas)
         if (posted) {
-            settingsRepository.setLastNotifiedDuplicateCount(excessCount)
+            val updated = baselineByCategory.toMutableMap()
+            for (category in deltas.keys) {
+                updated[category] = currentByCategory.getValue(category).excess
+            }
+            settingsRepository.setLastNotifiedDuplicateCountsByCategory(updated)
         }
     }
 
