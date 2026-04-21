@@ -24,12 +24,19 @@ class MediaDeleter @Inject constructor(
 ) {
 
     data class Plan(
-        /** `null` when there are no MediaStore-backed items or when running below Android 11. */
+        /** `null` when there are no MediaStore items pending user confirmation. */
         val intentSender: IntentSender?,
         /** Ids already deleted synchronously (SAF tree items). */
         val alreadyDeletedMediaIds: List<Long>,
         /** MediaStore ids that will be removed *pending* user confirmation via [intentSender]. */
         val pendingMediaStoreMediaIds: List<Long>,
+        /**
+         * MediaStore ids that cannot be deleted on this Android version — typically API < 30,
+         * where [MediaStore.createDeleteRequest] does not exist and per-item
+         * `ContentResolver.delete` throws without a recoverable `IntentSender`. Callers should
+         * surface these to the user (e.g. snackbar) instead of silently ignoring them.
+         */
+        val unsupportedMediaStoreMediaIds: List<Long>,
     )
 
     fun prepare(items: List<MediaItem>): Plan {
@@ -42,18 +49,29 @@ class MediaDeleter @Inject constructor(
             if (deleted) item.id else null
         }
 
-        val intentSender: IntentSender? =
-            if (mediaStoreItems.isNotEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                buildDeleteRequest(mediaStoreItems.map { Uri.parse(it.uri) })
-            } else {
-                null
-            }
-
-        return Plan(
-            intentSender = intentSender,
-            alreadyDeletedMediaIds = safDeleted,
-            pendingMediaStoreMediaIds = mediaStoreItems.map { it.id },
-        )
+        val mediaStoreIds = mediaStoreItems.map { it.id }
+        return if (mediaStoreItems.isEmpty()) {
+            Plan(
+                intentSender = null,
+                alreadyDeletedMediaIds = safDeleted,
+                pendingMediaStoreMediaIds = emptyList(),
+                unsupportedMediaStoreMediaIds = emptyList(),
+            )
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Plan(
+                intentSender = buildDeleteRequest(mediaStoreItems.map { Uri.parse(it.uri) }),
+                alreadyDeletedMediaIds = safDeleted,
+                pendingMediaStoreMediaIds = mediaStoreIds,
+                unsupportedMediaStoreMediaIds = emptyList(),
+            )
+        } else {
+            Plan(
+                intentSender = null,
+                alreadyDeletedMediaIds = safDeleted,
+                pendingMediaStoreMediaIds = emptyList(),
+                unsupportedMediaStoreMediaIds = mediaStoreIds,
+            )
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.R)

@@ -41,16 +41,16 @@ fun MediaThumbnail(
     Box(
         modifier = modifier
             .size(size)
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .combinedClickable(onClick = onTap, onLongClick = onLongPress)
             .then(
                 if (selected) {
                     Modifier.border(3.dp, MaterialTheme.colorScheme.primary, shape)
                 } else {
                     Modifier
                 },
-            ),
+            )
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .combinedClickable(onClick = onTap, onLongClick = onLongPress),
         contentAlignment = Alignment.Center,
     ) {
         AsyncImage(
