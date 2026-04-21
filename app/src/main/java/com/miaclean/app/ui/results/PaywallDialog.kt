@@ -29,7 +29,11 @@ fun PaywallDialog(
             val body = if (state.dropped > 0) {
                 // PartialAllow: `allowed` items were deleted; `dropped` were skipped because they
                 // wouldn't fit the monthly budget. The "(X/Y)" slot renders the post-delete
-                // total (`used + allowed`) against the limit, not the limit twice.
+                // total against the limit. Today `used + allowed == limit` holds (since
+                // PartialAllow only fires when `allowed == limit - used`), so this evaluates to
+                // "(limit/limit)" at runtime — expressing it as `used + allowed` makes the
+                // intent explicit and keeps the dialog correct if a future per-operation cap
+                // ever lets `allowed < limit - used`.
                 stringResource(
                     R.string.paywall_body_partial,
                     state.allowed,
