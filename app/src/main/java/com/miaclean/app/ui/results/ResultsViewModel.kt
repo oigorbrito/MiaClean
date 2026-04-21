@@ -123,7 +123,7 @@ class ResultsViewModel @Inject constructor(
      * only bulk-selects the screenshots.
      */
     fun selectAllDuplicatesExceptFirst() {
-        _selection.value = filteredGroups.value
+        _selection.value = _selection.value + filteredGroups.value
             .flatMap { group -> group.items.drop(1).map { it.id } }
             .toSet()
     }
