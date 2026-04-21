@@ -7,6 +7,7 @@ import com.miaclean.app.data.ScanRepository
 import com.miaclean.app.data.db.MediaHashDao
 import com.miaclean.app.data.delete.MediaDeleter
 import com.miaclean.app.domain.DuplicateGroup
+import com.miaclean.app.domain.MediaCategory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -29,6 +31,26 @@ class ResultsViewModel @Inject constructor(
 
     private val _groups = MutableStateFlow<List<DuplicateGroup>>(emptyList())
     val groups: StateFlow<List<DuplicateGroup>> = _groups.asStateFlow()
+
+    /**
+     * Active category filter on the Results screen. `null` means "show everything"; otherwise we
+     * only emit groups whose [DuplicateGroup.dominantCategory] matches.
+     */
+    private val _categoryFilter = MutableStateFlow<MediaCategory?>(null)
+    val categoryFilter: StateFlow<MediaCategory?> = _categoryFilter.asStateFlow()
+
+    /**
+     * Categories actually present in the current scan result. Used to only render filter chips
+     * that would produce at least one group — otherwise the UI would offer dead-end filters.
+     */
+    val availableCategories: StateFlow<Set<MediaCategory>> =
+        _groups.map { groups -> groups.map { it.dominantCategory }.toSet() }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    val filteredGroups: StateFlow<List<DuplicateGroup>> =
+        combine(_groups, _categoryFilter) { groups, filter ->
+            if (filter == null) groups else groups.filter { it.dominantCategory == filter }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _selection = MutableStateFlow<Set<Long>>(emptySet())
     val selection: StateFlow<Set<Long>> = _selection.asStateFlow()
@@ -95,11 +117,19 @@ class ResultsViewModel @Inject constructor(
         _selection.value = emptySet()
     }
 
-    /** Selects every item in every group except the first (a proxy for "the one to keep"). */
+    /**
+     * Selects every item in every *currently visible* group except the first (a proxy for
+     * "the one to keep"). Uses [filteredGroups] so a user who has narrowed down to "Screenshots"
+     * only bulk-selects the screenshots.
+     */
     fun selectAllDuplicatesExceptFirst() {
-        _selection.value = _groups.value
+        _selection.value = _selection.value + filteredGroups.value
             .flatMap { group -> group.items.drop(1).map { it.id } }
             .toSet()
+    }
+
+    fun setCategoryFilter(category: MediaCategory?) {
+        _categoryFilter.value = category
     }
 
     /**

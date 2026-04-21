@@ -19,10 +19,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -46,6 +49,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.miaclean.app.R
 import com.miaclean.app.domain.DuplicateGroup
+import com.miaclean.app.domain.MediaCategory
 import com.miaclean.app.domain.MediaItem
 import com.miaclean.app.util.formatBytes
 
@@ -55,7 +59,10 @@ fun ResultsScreen(
     onBack: () -> Unit,
     viewModel: ResultsViewModel = hiltViewModel(),
 ) {
-    val groups by viewModel.groups.collectAsStateWithLifecycle()
+    val groups by viewModel.filteredGroups.collectAsStateWithLifecycle()
+    val allGroups by viewModel.groups.collectAsStateWithLifecycle()
+    val availableCategories by viewModel.availableCategories.collectAsStateWithLifecycle()
+    val categoryFilter by viewModel.categoryFilter.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
     val selectionSummary by viewModel.selectionSummary.collectAsStateWithLifecycle()
     var preview by remember { mutableStateOf<MediaItem?>(null) }
@@ -97,7 +104,7 @@ fun ResultsScreen(
                 },
                 actions = {
                     if (groups.isNotEmpty()) {
-                        TextButton(onClick = viewModel::selectAllDuplicatesExceptFirst) {
+                        TextButton(onClick = { viewModel.selectAllDuplicatesExceptFirst() }) {
                             Icon(
                                 imageVector = Icons.Filled.SelectAll,
                                 contentDescription = null,
@@ -160,10 +167,21 @@ fun ResultsScreen(
                 .padding(PaddingValues(horizontal = 24.dp, vertical = 16.dp)),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (availableCategories.size > 1) {
+                CategoryFilterRow(
+                    available = availableCategories,
+                    selected = categoryFilter,
+                    onSelect = viewModel::setCategoryFilter,
+                )
+            }
             if (groups.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = stringResource(R.string.results_empty),
+                        text = if (categoryFilter != null && allGroups.isNotEmpty()) {
+                            stringResource(R.string.results_empty_filtered)
+                        } else {
+                            stringResource(R.string.results_empty)
+                        },
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 }
@@ -196,6 +214,47 @@ fun ResultsScreen(
 }
 
 @Composable
+private fun CategoryFilterRow(
+    available: Set<MediaCategory>,
+    selected: MediaCategory?,
+    onSelect: (MediaCategory?) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilterChip(
+            selected = selected == null,
+            onClick = { onSelect(null) },
+            label = { Text(stringResource(R.string.results_filter_all)) },
+        )
+        MediaCategory.values()
+            .filter { it in available }
+            .forEach { category ->
+                FilterChip(
+                    selected = selected == category,
+                    onClick = { onSelect(if (selected == category) null else category) },
+                    label = { Text(category.displayLabel()) },
+                )
+            }
+    }
+}
+
+@Composable
+private fun MediaCategory.displayLabel(): String = stringResource(
+    when (this) {
+        MediaCategory.Screenshot -> R.string.category_screenshot
+        MediaCategory.Selfie -> R.string.category_selfie
+        MediaCategory.Meme -> R.string.category_meme
+        MediaCategory.Photo -> R.string.category_photo
+        MediaCategory.Video -> R.string.category_video
+        MediaCategory.Other -> R.string.category_other
+    },
+)
+
+@Composable
 private fun GroupCard(
     group: DuplicateGroup,
     selection: Set<Long>,
@@ -204,15 +263,30 @@ private fun GroupCard(
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(
-                    R.string.results_group,
-                    group.groupId + 1,
-                    group.items.size,
-                    formatBytes(group.totalBytes),
-                ),
-                style = MaterialTheme.typography.titleLarge,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(
+                        R.string.results_group,
+                        group.groupId + 1,
+                        group.items.size,
+                        formatBytes(group.totalBytes),
+                    ),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                AssistChip(
+                    onClick = {},
+                    label = { Text(group.dominantCategory.displayLabel()) },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    ),
+                )
+            }
             Text(
                 text = when (group.strategy) {
                     DuplicateGroup.Strategy.EXACT_MD5 -> stringResource(R.string.results_strategy_exact)

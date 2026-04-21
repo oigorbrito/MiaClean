@@ -27,4 +27,5 @@ data class MediaHashEntity(
     @ColumnInfo(name = "p_hash") val pHash: String?,
     @ColumnInfo(name = "embedding_hash") val embeddingHash: String?,
     @ColumnInfo(name = "last_scanned_ms") val lastScannedMs: Long,
+    @ColumnInfo(name = "category", defaultValue = "Other") val category: String = "Other",
 )

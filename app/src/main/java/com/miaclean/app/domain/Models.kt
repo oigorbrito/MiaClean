@@ -1,5 +1,29 @@
 package com.miaclean.app.domain
 
+/**
+ * Coarse buckets used by the Results screen to help the user reason about what a duplicate group
+ * is. The classification is a best-effort heuristic — treat it as a hint, not ground truth.
+ */
+enum class MediaCategory {
+    /** Screenshots (system UI, browser captures). Usually the safest category to bulk-delete. */
+    Screenshot,
+
+    /** Frontal-camera photos. Detection is metadata-only today; may expand to face detection. */
+    Selfie,
+
+    /** Low-resolution/image messages that look like WhatsApp forwards — memes, jokes, images. */
+    Meme,
+
+    /** Any other image (camera rolls, downloads, etc.). */
+    Photo,
+
+    /** Video (any MIME starting with `video/`). */
+    Video,
+
+    /** Fallback when MIME is unknown or not image/video. */
+    Other,
+}
+
 /** A media item discovered on the device. */
 data class MediaItem(
     val id: Long,
@@ -10,6 +34,7 @@ data class MediaItem(
     val dateTakenMs: Long,
     val relativePath: String,
     val isFromWhatsApp: Boolean,
+    val category: MediaCategory = MediaCategory.Other,
 )
 
 /** A hash pair used for duplicate detection. */
@@ -28,6 +53,14 @@ data class DuplicateGroup(
     val totalBytes: Long,
 ) {
     enum class Strategy { EXACT_MD5, PERCEPTUAL_PHASH, SEMANTIC_EMBED }
+
+    /** Category that best represents the group, used for the category chip + filter. */
+    val dominantCategory: MediaCategory
+        get() = items.groupingBy { it.category }
+            .eachCount()
+            .maxByOrNull { it.value }
+            ?.key
+            ?: MediaCategory.Other
 }
 
 /** Progress emitted by the scan pipeline. */
