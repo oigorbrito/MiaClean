@@ -27,9 +27,12 @@ class OnboardingViewModel @Inject constructor(
 
     fun onSafTreeGranted(treeUri: Uri) {
         val resolver = context.contentResolver
-        val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
-            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
-        runCatching { resolver.takePersistableUriPermission(treeUri, takeFlags) }
-        viewModelScope.launch { userSettings.addSafTreeUri(treeUri) }
+        val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+        val persisted = runCatching {
+            resolver.takePersistableUriPermission(treeUri, takeFlags)
+        }.isSuccess
+        if (persisted) {
+            viewModelScope.launch { userSettings.addSafTreeUri(treeUri) }
+        }
     }
 }
