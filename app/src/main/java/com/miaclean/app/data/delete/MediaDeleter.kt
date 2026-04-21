@@ -127,7 +127,7 @@ class MediaDeleter @Inject constructor(
             .getOrDefault(false)
     }
 
-    @RequiresApi(Build.VERSION_CODES.Q)
+    @RequiresApi(Build.VERSION_CODES.R)
     private fun buildDeleteRequest(uris: List<Uri>): IntentSender =
         MediaStore.createDeleteRequest(context.contentResolver, uris).intentSender
 

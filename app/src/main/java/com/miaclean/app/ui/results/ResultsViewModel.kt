@@ -74,6 +74,14 @@ class ResultsViewModel @Inject constructor(
     private val _consentQueue = MutableStateFlow<List<MediaDeleter.PendingConsent>>(emptyList())
     val consentQueue: StateFlow<List<MediaDeleter.PendingConsent>> = _consentQueue.asStateFlow()
 
+    /**
+     * Latched when an API-29 consent chain is primed alongside some non-recoverable failures so
+     * the `Unsupported` snackbar is deferred until every consent dialog has returned. Emitting
+     * the snackbar between dialogs would suspend the event collector inside `showSnackbar`,
+     * stalling the next `LaunchIntentSender` event until the snackbar auto-dismissed.
+     */
+    private var pendingUnsupportedAfterConsent: Boolean = false
+
     private val _deleteEvents = Channel<DeleteEvent>(capacity = Channel.BUFFERED)
     val deleteEvents: Flow<DeleteEvent> = _deleteEvents.receiveAsFlow()
 
@@ -175,13 +183,15 @@ class ResultsViewModel @Inject constructor(
                     }
                     plan.pendingConsent.isNotEmpty() -> {
                         _consentQueue.value = plan.pendingConsent
+                        // Defer any `Unsupported` snackbar until the full consent chain drains;
+                        // otherwise `showSnackbar` would suspend the event collector and block
+                        // delivery of the next `LaunchIntentSender` until the snackbar timed out.
+                        pendingUnsupportedAfterConsent =
+                            plan.unsupportedMediaStoreMediaIds.isNotEmpty()
                         awaitingDialog = true
                         _deleteEvents.send(
                             DeleteEvent.LaunchIntentSender(plan.pendingConsent.first().intentSender),
                         )
-                        if (plan.unsupportedMediaStoreMediaIds.isNotEmpty()) {
-                            _deleteEvents.send(DeleteEvent.Unsupported)
-                        }
                     }
                     plan.unsupportedMediaStoreMediaIds.isNotEmpty() -> {
                         _deleteEvents.send(DeleteEvent.Unsupported)
@@ -241,6 +251,10 @@ class ResultsViewModel @Inject constructor(
             if (rest.isNotEmpty()) {
                 _deleteEvents.send(DeleteEvent.LaunchIntentSender(rest.first().intentSender))
             } else {
+                if (pendingUnsupportedAfterConsent) {
+                    pendingUnsupportedAfterConsent = false
+                    _deleteEvents.send(DeleteEvent.Unsupported)
+                }
                 deleteInFlight = false
             }
         }
