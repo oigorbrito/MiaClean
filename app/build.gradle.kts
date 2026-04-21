@@ -87,7 +87,11 @@ android {
     }
 
     androidResources {
-        generateLocaleConfig = false
+        // Android 13+ per-app language picker (Settings > Apps > MIA Clean > Language) reads a
+        // `locales_config.xml` auto-generated from the `values-*/` directories we ship. Now that
+        // three locales are present, flipping this to `true` lets users switch the app's
+        // language independently of the system locale without us hand-maintaining the xml.
+        generateLocaleConfig = true
     }
 
     lint {
