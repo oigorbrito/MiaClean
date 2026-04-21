@@ -68,6 +68,25 @@
             </intent-filter>
         </service>
 
+        <!--
+            Home-screen widget (Glance-powered). Exposed to the AppWidgetHost via the standard
+            APPWIDGET_UPDATE action; taps/refreshes are dispatched by GlanceAppWidgetReceiver.
+            No exported="true" override: AppWidgetProvider receivers must be exported for the
+            launcher to bind them, and android:exported follows the default-true convention for
+            receivers carrying an intent-filter on older platforms. Explicit here for clarity.
+        -->
+        <receiver
+            android:name=".widget.DuplicatesWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
+
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"

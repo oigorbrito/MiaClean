@@ -6,9 +6,11 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.miaclean.app.domain.MediaCategory
+import com.miaclean.app.widget.WidgetSummary
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -34,6 +36,9 @@ class SettingsRepository @Inject constructor(
     private val lastNotifiedCountKey = intPreferencesKey(KEY_LAST_NOTIFIED_COUNT)
     private val lastNotifiedByCategoryKey = stringPreferencesKey(KEY_LAST_NOTIFIED_BY_CATEGORY)
     private val onboardingCompleteKey = booleanPreferencesKey(KEY_ONBOARDING_COMPLETE)
+    private val widgetHasScannedKey = booleanPreferencesKey(KEY_WIDGET_HAS_SCANNED)
+    private val widgetDuplicateCountKey = intPreferencesKey(KEY_WIDGET_DUPLICATE_COUNT)
+    private val widgetReclaimableBytesKey = longPreferencesKey(KEY_WIDGET_RECLAIMABLE_BYTES)
 
     val deleteStrategy: Flow<DeleteStrategy> = context.deletePrefsDataStore.data.map { prefs ->
         when (prefs[deleteStrategyKey]) {
@@ -91,6 +96,22 @@ class SettingsRepository @Inject constructor(
         prefs[onboardingCompleteKey] ?: false
     }
 
+    /**
+     * Snapshot of the latest successful scan, consumed by the home-screen Glance widget. Stored
+     * in the same DataStore as the rest of the settings so a launcher-process widget render does
+     * not need to attach Room + decrypt the cache on each 30-minute update cycle — three scalar
+     * reads are enough. [WidgetSummary.hasScanned] is the source of truth for
+     * "ReadyToScan vs NoDuplicates" branching; relying on `duplicateCount == 0` alone would
+     * misclassify fresh installs as "tudo limpo".
+     */
+    val widgetSummary: Flow<WidgetSummary> = context.deletePrefsDataStore.data.map { prefs ->
+        WidgetSummary(
+            hasScanned = prefs[widgetHasScannedKey] ?: false,
+            duplicateCount = prefs[widgetDuplicateCountKey] ?: 0,
+            reclaimableBytes = prefs[widgetReclaimableBytesKey] ?: 0L,
+        )
+    }
+
     suspend fun currentBackgroundScanEnabled(): Boolean = backgroundScanEnabled.first()
 
     suspend fun currentNotifyOnNewDuplicates(): Boolean = notifyOnNewDuplicates.first()
@@ -101,6 +122,8 @@ class SettingsRepository @Inject constructor(
         lastNotifiedDuplicateCountsByCategory.first()
 
     suspend fun currentOnboardingComplete(): Boolean = onboardingComplete.first()
+
+    suspend fun currentWidgetSummary(): WidgetSummary = widgetSummary.first()
 
     suspend fun setDeleteStrategy(strategy: DeleteStrategy) {
         context.deletePrefsDataStore.edit { prefs ->
@@ -138,6 +161,14 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    suspend fun setWidgetSummary(summary: WidgetSummary) {
+        context.deletePrefsDataStore.edit { prefs ->
+            prefs[widgetHasScannedKey] = summary.hasScanned
+            prefs[widgetDuplicateCountKey] = summary.duplicateCount
+            prefs[widgetReclaimableBytesKey] = summary.reclaimableBytes
+        }
+    }
+
     private companion object {
         const val KEY_DELETE_STRATEGY = "delete_strategy"
         const val KEY_BACKGROUND_SCAN = "background_scan_enabled"
@@ -145,5 +176,8 @@ class SettingsRepository @Inject constructor(
         const val KEY_LAST_NOTIFIED_COUNT = "last_notified_duplicate_count"
         const val KEY_LAST_NOTIFIED_BY_CATEGORY = "last_notified_duplicate_counts_by_category"
         const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
+        const val KEY_WIDGET_HAS_SCANNED = "widget_has_scanned"
+        const val KEY_WIDGET_DUPLICATE_COUNT = "widget_duplicate_count"
+        const val KEY_WIDGET_RECLAIMABLE_BYTES = "widget_reclaimable_bytes"
     }
 }

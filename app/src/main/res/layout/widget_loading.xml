@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Framework-required initialLayout used only for the brief window between AppWidgetHost
+    binding and the first Glance `provideGlance` pass. Kept deliberately minimalist — a logo
+    and the app title — because Glance replaces this tree as soon as the first render lands.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="?android:attr/colorBackground">
+
+    <ImageView
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/ic_widget_logo"
+        android:contentDescription="@string/widget_title" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/widget_title"
+        android:textAppearance="?android:attr/textAppearanceListItemSmall" />
+</LinearLayout>

@@ -14,7 +14,9 @@ import com.miaclean.app.R
 import com.miaclean.app.data.ScanRepository
 import com.miaclean.app.data.settings.SettingsRepository
 import com.miaclean.app.data.settings.UserSettingsRepository
+import com.miaclean.app.domain.DuplicateGroup
 import com.miaclean.app.domain.ScanProgress
+import com.miaclean.app.widget.WidgetSummaryUpdater
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.last
@@ -28,6 +30,7 @@ class ScanWorker @AssistedInject constructor(
     private val userSettings: UserSettingsRepository,
     private val settingsRepository: SettingsRepository,
     private val notifier: DuplicateFinderNotifier,
+    private val widgetSummaryUpdater: WidgetSummaryUpdater,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
@@ -36,7 +39,14 @@ class ScanWorker @AssistedInject constructor(
         val final = scanRepository.scan(additionalSafTreeUris = safUris).last()
         return when (final) {
             is ScanProgress.Done -> {
-                maybeNotifyDelta()
+                // Load once and share between the notifier and the widget-summary update:
+                // both need the same `DuplicateGroup` list with identical semantics for the
+                // "excess" count, so a second `loadGroups()` call would risk a race against
+                // any write that happens in between (e.g. a concurrent undo-restore from the
+                // UI) and would waste the Room query.
+                val groups = scanRepository.loadGroups()
+                widgetSummaryUpdater.refreshFromGroups(groups)
+                maybeNotifyDelta(groups)
                 Result.success()
             }
             is ScanProgress.Failed -> Result.failure()
@@ -65,9 +75,8 @@ class ScanWorker @AssistedInject constructor(
      * and skip notifying this cycle. The user misses one delta on the upgrade cycle in exchange
      * for a clean, non-spammy transition.
      */
-    private suspend fun maybeNotifyDelta() {
+    private suspend fun maybeNotifyDelta(groups: List<DuplicateGroup>) {
         if (!settingsRepository.currentNotifyOnNewDuplicates()) return
-        val groups = scanRepository.loadGroups()
 
         val currentByCategory = groups
             .groupBy { it.dominantCategory }
