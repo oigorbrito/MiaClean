@@ -43,6 +43,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,8 +71,7 @@ fun ResultsScreen(
     viewModel: ResultsViewModel = hiltViewModel(),
     // See note on `MiaCleanRoot`'s defaults: wrapped in `remember` so ad-hoc previews get a
     // stable `MutableState` across recompositions instead of a fresh one per call.
-    pendingCategoryFilter: androidx.compose.runtime.MutableState<MediaCategory?> =
-        androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(null) },
+    pendingCategoryFilter: MutableState<MediaCategory?> = remember { mutableStateOf(null) },
 ) {
     val groups by viewModel.filteredGroups.collectAsStateWithLifecycle()
     val allGroups by viewModel.groups.collectAsStateWithLifecycle()
