@@ -136,32 +136,38 @@ fun ResultsScreen(
                             )
                         }
                     }
-                    IconButton(onClick = { overflowOpen = true }) {
-                        Icon(imageVector = Icons.Filled.MoreVert, contentDescription = null)
-                    }
-                    DropdownMenu(
-                        expanded = overflowOpen,
-                        onDismissRequest = { overflowOpen = false },
-                    ) {
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    stringResource(
-                                        if (entitlement == com.miaclean.app.data.entitlement.Entitlement.Pro) {
-                                            R.string.paywall_debug_toggle_off
-                                        } else {
-                                            R.string.paywall_debug_toggle_on
-                                        },
-                                    ),
-                                )
-                            },
-                            onClick = {
-                                viewModel.setProForDebug(
-                                    isPro = entitlement != com.miaclean.app.data.entitlement.Entitlement.Pro,
-                                )
-                                overflowOpen = false
-                            },
-                        )
+                    // Debug-only Pro toggle. Gated by `BuildConfig.DEBUG` so release builds
+                    // don't ship a one-tap bypass of the freemium gate. When real Play Billing
+                    // lands, this menu can go away entirely (or be replaced by a proper
+                    // subscription management entry point).
+                    if (com.miaclean.app.BuildConfig.DEBUG) {
+                        IconButton(onClick = { overflowOpen = true }) {
+                            Icon(imageVector = Icons.Filled.MoreVert, contentDescription = null)
+                        }
+                        DropdownMenu(
+                            expanded = overflowOpen,
+                            onDismissRequest = { overflowOpen = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(
+                                            if (entitlement == com.miaclean.app.data.entitlement.Entitlement.Pro) {
+                                                R.string.paywall_debug_toggle_off
+                                            } else {
+                                                R.string.paywall_debug_toggle_on
+                                            },
+                                        ),
+                                    )
+                                },
+                                onClick = {
+                                    viewModel.setProForDebug(
+                                        isPro = entitlement != com.miaclean.app.data.entitlement.Entitlement.Pro,
+                                    )
+                                    overflowOpen = false
+                                },
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(),

@@ -28,12 +28,13 @@ fun PaywallDialog(
         text = {
             val body = if (state.dropped > 0) {
                 // PartialAllow: `allowed` items were deleted; `dropped` were skipped because they
-                // wouldn't fit the monthly budget.
+                // wouldn't fit the monthly budget. The "(X/Y)" slot renders the post-delete
+                // total (`used + allowed`) against the limit, not the limit twice.
                 stringResource(
                     R.string.paywall_body_partial,
                     state.allowed,
                     state.dropped,
-                    state.limit,
+                    state.used + state.allowed,
                     state.limit,
                 )
             } else {
