@@ -1,0 +1,30 @@
+<resources>
+    <string name="app_name">MIA Clean</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_title">Bem-vindo ao MIA Clean</string>
+    <string name="onboarding_subtitle">Encontre e remova mídias duplicadas do WhatsApp e da galeria com segurança.</string>
+    <string name="onboarding_permission_rationale">Precisamos de acesso às suas mídias para detectar duplicadas. Nenhum arquivo é enviado para fora do seu dispositivo.</string>
+    <string name="onboarding_grant">Conceder permissões</string>
+    <string name="onboarding_saf_hint">Se o WhatsApp não aparecer automaticamente, você poderá selecioná-lo manualmente via seletor de pasta.</string>
+    <string name="onboarding_continue">Continuar</string>
+
+    <!-- Scan -->
+    <string name="scan_title">Procurando duplicadas</string>
+    <string name="scan_start">Iniciar scan</string>
+    <string name="scan_cancel">Cancelar</string>
+    <string name="scan_progress">Analisado %1$d de %2$d</string>
+    <string name="scan_idle">Toque em Iniciar scan para começar.</string>
+    <string name="scan_done">Scan concluído: %1$d duplicadas em %2$d grupos.</string>
+
+    <!-- Results -->
+    <string name="results_title">Resultados</string>
+    <string name="results_empty">Nenhuma duplicada encontrada ainda.</string>
+    <string name="results_group">Grupo %1$d • %2$d itens • %3$s</string>
+
+    <!-- Work -->
+    <string name="work_notification_channel_name">Scan em segundo plano</string>
+    <string name="work_notification_channel_description">Notificações sobre progresso do scan.</string>
+    <string name="work_notification_title">MIA Clean</string>
+    <string name="work_notification_content">Analisando mídias…</string>
+</resources>
