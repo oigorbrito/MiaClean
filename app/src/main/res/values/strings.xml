@@ -37,6 +37,7 @@
     <string name="results_delete_nothing">Não foi possível apagar os itens selecionados. Permissões podem ter sido revogadas ou os arquivos já foram removidos.</string>
     <string name="results_delete_undoable">%1$d movidos para a lixeira</string>
     <string name="results_delete_permanent">%1$d apagados</string>
+    <string name="results_delete_undo_failed">Não foi possível desfazer. Os itens podem ter saído da lixeira.</string>
     <string name="results_delete_undo_action">Desfazer</string>
     <string name="results_empty_filtered">Nenhuma duplicada nessa categoria.</string>
     <string name="results_filter_all">Tudo</string>

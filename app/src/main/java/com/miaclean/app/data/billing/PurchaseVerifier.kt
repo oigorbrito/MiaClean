@@ -23,7 +23,23 @@ import java.security.spec.X509EncodedKeySpec
  */
 class PurchaseVerifier(
     private val base64EncodedPublicKey: String,
+    /**
+     * Whether the host build is debuggable. Injected rather than read from [Build] so the
+     * verifier stays unit-testable. Pass `BuildConfig.DEBUG` at the call site.
+     *
+     * In a release build with a blank key the constructor fails fast via [require] — shipping
+     * a release APK without wiring `BILLING_PUBLIC_KEY` would otherwise silently accept every
+     * forged purchase, which is strictly worse than a crash on startup.
+     */
+    private val isDebug: Boolean,
 ) {
+
+    init {
+        require(isDebug || base64EncodedPublicKey.isNotBlank()) {
+            "BILLING_PUBLIC_KEY must be set for release builds. Configure it in " +
+                "app/build.gradle.kts or override via -PBILLING_PUBLIC_KEY=..."
+        }
+    }
 
     /**
      * Returns `true` if [signature] is a valid RSA/SHA1 signature over [signedData] using the
@@ -31,16 +47,16 @@ class PurchaseVerifier(
      * decoding, algorithm, or verification error — the caller should treat that as an
      * unverified purchase and NOT grant entitlement.
      *
-     * When [base64EncodedPublicKey] is blank, verification is skipped and returns `true` so
-     * debug builds without a key configured still flow end-to-end — but a warning is logged so
-     * forgetting to plug the key in before release is noticeable.
+     * When [base64EncodedPublicKey] is blank (only reachable in debug builds per the [init]
+     * check above), verification is skipped and returns `true` so debug builds without a key
+     * configured still flow end-to-end — with a loud warning so the missing key is noticeable.
      */
     fun verify(signedData: String, signature: String): Boolean {
         if (base64EncodedPublicKey.isBlank()) {
             Log.w(
                 TAG,
                 "PurchaseVerifier has no BILLING_PUBLIC_KEY configured; skipping signature " +
-                    "verification. Do NOT ship release builds in this state.",
+                    "verification. Debug build only — release builds fail fast in init().",
             )
             return true
         }

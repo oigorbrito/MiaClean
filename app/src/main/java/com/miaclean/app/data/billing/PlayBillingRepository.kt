@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -57,7 +59,10 @@ class PlayBillingRepository @Inject constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    private val verifier = PurchaseVerifier(BuildConfig.BILLING_PUBLIC_KEY)
+    private val verifier = PurchaseVerifier(
+        base64EncodedPublicKey = BuildConfig.BILLING_PUBLIC_KEY,
+        isDebug = BuildConfig.DEBUG,
+    )
 
     private val proProductIds: Set<String> = setOf(
         BuildConfig.BILLING_SKU_MONTHLY,
@@ -93,13 +98,24 @@ class PlayBillingRepository @Inject constructor(
     /**
      * True while a [BillingClient.startConnection] attempt is in flight. Prevents a second
      * `startConnection` from being issued if `refreshPurchasesOnResume()` races with
-     * `start()` (e.g. Application.onCreate + MainActivity.onResume on cold launch). The
-     * flag is flipped to false whenever the listener resolves or a reconnect is scheduled.
+     * `start()` (e.g. Application.onCreate + MainActivity.onResume on cold launch).
+     *
+     * Must be an [AtomicBoolean] because it's read and written from at least three threads with
+     * no happens-before relationship otherwise: the main thread (`connect()` called from
+     * `start()` / `refreshPurchasesOnResume()`), [Dispatchers.Default] (`scheduleReconnect()`'s
+     * delayed coroutine calls `connect()`), and the Play Services IPC callback thread
+     * ([BillingClientStateListener]). Without an atomic `compareAndSet`, two callers could both
+     * observe `false` and issue two `startConnection` calls, or a stale cached `true` could
+     * block a legitimate reconnect forever.
      */
-    private var connecting = false
+    private val connecting = AtomicBoolean(false)
 
-    /** Current backoff for reconnect retries, doubles on each consecutive failure. */
-    private var reconnectBackoffMillis = INITIAL_RECONNECT_BACKOFF_MS
+    /**
+     * Current backoff for reconnect retries, doubles on each consecutive failure. Atomic for
+     * the same cross-thread-visibility reason as [connecting] — reset from the callback thread
+     * on a successful connect, updated from [Dispatchers.Default] in `scheduleReconnect()`.
+     */
+    private val reconnectBackoffMillis = AtomicLong(INITIAL_RECONNECT_BACKOFF_MS)
 
     /**
      * Kicks off the connection / product query. Safe to call multiple times — no-op if the
@@ -182,14 +198,15 @@ class PlayBillingRepository @Inject constructor(
     }
 
     private fun connect() {
-        if (connecting || billingClient.isReady) return
-        connecting = true
+        if (billingClient.isReady) return
+        // compareAndSet == false means another thread already flipped it to true; bail.
+        if (!connecting.compareAndSet(false, true)) return
         billingClient.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(billingResult: BillingResult) {
-                connecting = false
+                connecting.set(false)
                 when (billingResult.responseCode) {
                     BillingClient.BillingResponseCode.OK -> {
-                        reconnectBackoffMillis = INITIAL_RECONNECT_BACKOFF_MS
+                        reconnectBackoffMillis.set(INITIAL_RECONNECT_BACKOFF_MS)
                         scope.launch { refreshProductsAndPurchases() }
                     }
                     BillingClient.BillingResponseCode.BILLING_UNAVAILABLE -> {
@@ -210,7 +227,7 @@ class PlayBillingRepository @Inject constructor(
             }
 
             override fun onBillingServiceDisconnected() {
-                connecting = false
+                connecting.set(false)
                 _state.value = BillingState.Unavailable(
                     BillingState.Reason.BillingServiceDisconnected,
                 )
@@ -221,9 +238,10 @@ class PlayBillingRepository @Inject constructor(
 
     private fun scheduleReconnect() {
         scope.launch {
-            delay(reconnectBackoffMillis)
-            reconnectBackoffMillis = (reconnectBackoffMillis * 2)
-                .coerceAtMost(MAX_RECONNECT_BACKOFF_MS)
+            delay(reconnectBackoffMillis.get())
+            reconnectBackoffMillis.updateAndGet { current ->
+                (current * 2).coerceAtMost(MAX_RECONNECT_BACKOFF_MS)
+            }
             if (!billingClient.isReady) connect()
         }
     }
