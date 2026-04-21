@@ -35,6 +35,9 @@
     <string name="results_delete_action">Apagar %1$d</string>
     <string name="results_delete_unsupported">Alguns itens não puderam ser apagados nesta versão do Android. Itens do WhatsApp via SAF continuam funcionando.</string>
     <string name="results_delete_nothing">Não foi possível apagar os itens selecionados. Permissões podem ter sido revogadas ou os arquivos já foram removidos.</string>
+    <string name="results_delete_undoable">%1$d movidos para a lixeira</string>
+    <string name="results_delete_permanent">%1$d apagados</string>
+    <string name="results_delete_undo_action">Desfazer</string>
     <string name="results_empty_filtered">Nenhuma duplicada nessa categoria.</string>
     <string name="results_filter_all">Tudo</string>
     <string name="category_screenshot">Screenshots</string>
@@ -55,6 +58,18 @@
     <string name="paywall_pro_chip">Pro</string>
     <string name="paywall_debug_toggle_on">Ativar Pro (debug)</string>
     <string name="paywall_debug_toggle_off">Desativar Pro (debug)</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Configurações</string>
+    <string name="settings_delete_strategy_title">Ao apagar duplicadas</string>
+    <string name="settings_delete_strategy_subtitle">Escolha o que acontece com os arquivos removidos. Só afeta Android 11 ou superior — em versões anteriores, a remoção é sempre definitiva.</string>
+    <string name="settings_strategy_trash">Mover para a lixeira (recomendado)</string>
+    <string name="settings_strategy_trash_desc">Os arquivos vão para a lixeira do sistema e podem ser restaurados por 30 dias. Você verá um botão Desfazer por alguns segundos após apagar.</string>
+    <string name="settings_strategy_permanent">Apagar definitivamente</string>
+    <string name="settings_strategy_permanent_desc">Os arquivos são removidos imediatamente e não podem ser recuperados. Libera espaço na hora, sem desfazer.</string>
+    <string name="settings_debug_section">Debug</string>
+    <string name="settings_debug_pro_toggle">Simular assinatura Pro</string>
+    <string name="settings_debug_pro_toggle_desc">Alterna o entitlement localmente para testar o gating sem passar pelo Play Billing.</string>
 
     <!-- Work -->
     <string name="work_notification_channel_name">Scan em segundo plano</string>

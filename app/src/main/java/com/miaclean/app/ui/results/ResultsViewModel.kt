@@ -3,12 +3,16 @@ package com.miaclean.app.ui.results
 import android.content.IntentSender
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.net.Uri
+import android.os.Build
 import com.miaclean.app.data.ScanRepository
 import com.miaclean.app.data.db.MediaHashDao
+import com.miaclean.app.data.db.MediaHashEntity
 import com.miaclean.app.data.delete.MediaDeleter
 import com.miaclean.app.data.entitlement.Entitlement
 import com.miaclean.app.data.entitlement.EntitlementEvaluator
 import com.miaclean.app.data.entitlement.EntitlementRepository
+import com.miaclean.app.data.settings.SettingsRepository
 import com.miaclean.app.domain.DuplicateGroup
 import com.miaclean.app.domain.MediaCategory
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,6 +23,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -31,6 +36,7 @@ class ResultsViewModel @Inject constructor(
     private val mediaDeleter: MediaDeleter,
     private val mediaHashDao: MediaHashDao,
     private val entitlementRepository: EntitlementRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     val entitlement: StateFlow<Entitlement> =
@@ -79,6 +85,19 @@ class ResultsViewModel @Inject constructor(
     val pendingMediaStoreIds: StateFlow<List<Long>> = _pendingMediaStoreIds.asStateFlow()
 
     /**
+     * MediaStore URIs paired with [_pendingMediaStoreIds], captured when the delete plan is
+     * built so the undo snapshot can hand them back to [MediaDeleter.buildRestoreRequest]
+     * without re-querying MediaStore. Kept in lockstep; cleared together.
+     */
+    private var pendingMediaStoreUris: List<Uri> = emptyList()
+
+    /**
+     * Latched to the [MediaDeleter.Plan.isUndoable] flag for the in-flight delete dialog so the
+     * result handler knows whether to snapshot the batch for Undo.
+     */
+    private var pendingIsUndoable: Boolean = false
+
+    /**
      * API 29 consent queue. On Android 10 there is no batched delete request; each cross-app
      * MediaStore item requires its own system prompt from the [RecoverableSecurityException]
      * it raised. We launch the head of this queue, wait for [onMediaStoreDeletionResult], finish
@@ -103,6 +122,23 @@ class ResultsViewModel @Inject constructor(
      * event collector and stall the next `LaunchIntentSender`.
      */
     private var pendingPaywallAfterDelete: DeleteEvent.PaywallRequired? = null
+
+    /**
+     * Snapshot of the last Trash-strategy deletion the user just confirmed. Held in memory so
+     * the Undo snackbar can restore files via [MediaStore.createTrashRequest] with `value=false`
+     * and re-insert the Room rows we purged. Cleared when the snackbar times out or after the
+     * user taps Undo and the restore dialog returns. Never populated for Permanent-strategy
+     * deletes (there's nothing to undo) or on API <= 29 (no Trash API).
+     */
+    private var lastTrashedDeletion: TrashedDeletion? = null
+
+    /**
+     * Tracks which mode [onMediaStoreDeletionResult] is currently closing out. The same
+     * `ActivityResultLauncher` is used for delete requests and undo/restore requests, so the VM
+     * needs to remember which flow it's waiting on — otherwise a confirmed restore would try to
+     * delete from Room.
+     */
+    private var dialogMode: DialogMode = DialogMode.Idle
 
     private val _deleteEvents = Channel<DeleteEvent>(capacity = Channel.BUFFERED)
     val deleteEvents: Flow<DeleteEvent> = _deleteEvents.receiveAsFlow()
@@ -225,14 +261,20 @@ class ResultsViewModel @Inject constructor(
                         dropped = decision.denied,
                     )
                 }
-                val plan = mediaDeleter.prepare(items)
+                val strategy = settingsRepository.deleteStrategy.first()
+                val plan = mediaDeleter.prepare(items, strategy)
                 if (plan.alreadyDeletedMediaIds.isNotEmpty()) {
+                    // SAF + API-29 self-owned items are already gone from disk; the Trash API
+                    // doesn't apply to them, so these never contribute to an Undo snackbar.
                     mediaHashDao.deleteByMediaIds(plan.alreadyDeletedMediaIds)
                     refreshAfterDelete(plan.alreadyDeletedMediaIds.toSet())
                 }
                 when {
                     plan.intentSender != null -> {
                         _pendingMediaStoreIds.value = plan.pendingMediaStoreMediaIds
+                        pendingMediaStoreUris = plan.pendingMediaStoreUris
+                        pendingIsUndoable = plan.isUndoable
+                        dialogMode = DialogMode.Delete
                         awaitingDialog = true
                         _deleteEvents.send(DeleteEvent.LaunchIntentSender(plan.intentSender))
                     }
@@ -269,28 +311,100 @@ class ResultsViewModel @Inject constructor(
     }
 
     /**
-     * Called after the system delete dialog returns a result. Handles both the API 30+ batch
-     * path (OS has already removed files on confirmation — we just prune the cache) and the
-     * API 29 consent chain (we must re-issue `resolver.delete` per URI before moving on to the
-     * next dialog).
+     * Called after the system delete-or-restore dialog returns a result. Handles:
+     *  * API 30+ batch delete path (OS already removed files on confirmation — prune cache).
+     *  * API 30+ batch trash path (same as delete from cache POV, but records an undoable
+     *    snapshot so the Undo snackbar can restore in-place).
+     *  * API 30+ restore path (user just tapped Undo and confirmed the restore dialog — we
+     *    re-insert the snapshotted entities and decrement the monthly counter).
+     *  * API 29 consent chain (re-issue `resolver.delete` per URI before moving on).
      */
     fun onMediaStoreDeletionResult(confirmed: Boolean) {
         if (_consentQueue.value.isNotEmpty()) {
             handleConsentResult(confirmed)
             return
         }
+        when (dialogMode) {
+            DialogMode.Restore -> handleRestoreResult(confirmed)
+            DialogMode.Delete, DialogMode.Idle -> handleDeleteResult(confirmed)
+        }
+    }
+
+    private fun handleDeleteResult(confirmed: Boolean) {
         val pending = _pendingMediaStoreIds.value
+        val pendingUris = pendingMediaStoreUris
+        val undoable = pendingIsUndoable
         _pendingMediaStoreIds.value = emptyList()
+        pendingMediaStoreUris = emptyList()
+        pendingIsUndoable = false
+        dialogMode = DialogMode.Idle
         deleteInFlight = false
         if (!confirmed || pending.isEmpty()) {
             flushPendingPaywall()
             return
         }
         viewModelScope.launch {
+            // Fetch the full Room rows before we delete them so undo can re-insert identical
+            // entities (md5, pHash, category, etc.) without hitting MediaStore or the hasher.
+            val preservedEntities = if (undoable) {
+                mediaHashDao.findByMediaIds(pending)
+            } else {
+                emptyList()
+            }
             mediaHashDao.deleteByMediaIds(pending)
             refreshAfterDelete(pending.toSet())
+            if (undoable && preservedEntities.isNotEmpty()) {
+                lastTrashedDeletion = TrashedDeletion(
+                    mediaIds = pending,
+                    uris = pendingUris,
+                    entities = preservedEntities,
+                )
+                _deleteEvents.send(DeleteEvent.UndoableDeletion(count = pending.size))
+            } else if (pending.isNotEmpty()) {
+                _deleteEvents.send(DeleteEvent.PermanentDeletion(count = pending.size))
+            }
             flushPendingPaywall()
         }
+    }
+
+    private fun handleRestoreResult(confirmed: Boolean) {
+        val snapshot = lastTrashedDeletion
+        lastTrashedDeletion = null
+        dialogMode = DialogMode.Idle
+        deleteInFlight = false
+        if (!confirmed || snapshot == null) return
+        viewModelScope.launch {
+            mediaHashDao.upsertAll(snapshot.entities)
+            entitlementRepository.recoverDeletions(snapshot.mediaIds.size)
+            publishGroups(scanRepository.loadGroups())
+        }
+    }
+
+    /**
+     * Invoked when the user taps "Desfazer" on the post-trash snackbar. Only has effect on
+     * API 30+ where [MediaStore.createTrashRequest] is available and where the last deletion
+     * actually used the Trash strategy. On any other state it's a no-op — the snackbar should
+     * have suppressed the action in the first place, but we defend here in case a stale tap
+     * arrives after the snapshot was cleared.
+     */
+    fun undoLastTrashDeletion() {
+        val snapshot = lastTrashedDeletion ?: return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+        if (deleteInFlight) return
+        deleteInFlight = true
+        dialogMode = DialogMode.Restore
+        viewModelScope.launch {
+            val intentSender = mediaDeleter.buildRestoreRequest(snapshot.uris)
+            _deleteEvents.send(DeleteEvent.LaunchIntentSender(intentSender))
+        }
+    }
+
+    /**
+     * Snackbar auto-dismiss path — discards the undo snapshot so a stale tap later (e.g. a
+     * second snackbar over the top) doesn't try to restore the wrong batch. Idempotent.
+     */
+    fun dismissUndoSnapshot() {
+        lastTrashedDeletion = null
     }
 
     private fun handleConsentResult(confirmed: Boolean) {
@@ -371,6 +485,20 @@ class ResultsViewModel @Inject constructor(
         data object NothingDeleted : DeleteEvent
 
         /**
+         * Emitted after a successful Trash-strategy deletion on API 30+. UI should show a
+         * snackbar with an Undo action; tapping it calls [undoLastTrashDeletion]. Timeout
+         * triggers [dismissUndoSnapshot] so the snapshot doesn't linger across unrelated flows.
+         */
+        data class UndoableDeletion(val count: Int) : DeleteEvent
+
+        /**
+         * Emitted after a successful Permanent-strategy deletion or on API 29 / API < 29 /
+         * SAF-only flows where Undo is fundamentally impossible. UI shows a plain
+         * confirmation snackbar without an action.
+         */
+        data class PermanentDeletion(val count: Int) : DeleteEvent
+
+        /**
          * Freemium gate fired. [dropped] is 0 when the request was fully blocked (budget
          * exhausted) or when the chip was tapped, and positive when a PartialAllow trimmed the
          * tail of the selection. [allowed] mirrors [EntitlementEvaluator.Decision.PartialAllow]
@@ -384,6 +512,19 @@ class ResultsViewModel @Inject constructor(
             val dropped: Int,
         ) : DeleteEvent
     }
+
+    private enum class DialogMode { Idle, Delete, Restore }
+
+    /**
+     * In-memory record of a trashed batch. [entities] is what we need to re-insert into Room on
+     * restore; [uris] is what we pass to [MediaDeleter.buildRestoreRequest]; [mediaIds] is the
+     * count we refund against the monthly budget.
+     */
+    private data class TrashedDeletion(
+        val mediaIds: List<Long>,
+        val uris: List<Uri>,
+        val entities: List<MediaHashEntity>,
+    )
 
     private suspend fun refreshAfterDelete(removed: Set<Long>) {
         _selection.value = _selection.value - removed

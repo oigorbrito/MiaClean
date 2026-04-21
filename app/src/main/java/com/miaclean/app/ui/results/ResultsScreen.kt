@@ -18,14 +18,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -50,6 +50,7 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -64,6 +65,7 @@ import com.miaclean.app.util.formatBytes
 @Composable
 fun ResultsScreen(
     onBack: () -> Unit,
+    onOpenSettings: () -> Unit,
     viewModel: ResultsViewModel = hiltViewModel(),
 ) {
     val groups by viewModel.filteredGroups.collectAsStateWithLifecycle()
@@ -78,9 +80,11 @@ fun ResultsScreen(
     var paywall by remember { mutableStateOf<ResultsViewModel.DeleteEvent.PaywallRequired?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val unsupportedMessage = stringResource(R.string.results_delete_unsupported)
     val nothingDeletedMessage = stringResource(R.string.results_delete_nothing)
     val upgradeStubMessage = stringResource(R.string.paywall_upgrade_stub)
+    val undoLabel = stringResource(R.string.results_delete_undo_action)
 
     val deleteLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult(),
@@ -99,6 +103,24 @@ fun ResultsScreen(
                 )
                 ResultsViewModel.DeleteEvent.NothingDeleted -> snackbarHostState.showSnackbar(
                     nothingDeletedMessage,
+                )
+                is ResultsViewModel.DeleteEvent.UndoableDeletion -> {
+                    // showSnackbar suspends until the user dismisses or taps the action; either
+                    // way we tell the VM so the stored snapshot can be cleared (on Undo the VM
+                    // will already have launched the restore dialog before this returns).
+                    val message = context.getString(R.string.results_delete_undoable, event.count)
+                    val result = snackbarHostState.showSnackbar(
+                        message = message,
+                        actionLabel = undoLabel,
+                        duration = SnackbarDuration.Short,
+                    )
+                    when (result) {
+                        SnackbarResult.ActionPerformed -> viewModel.undoLastTrashDeletion()
+                        SnackbarResult.Dismissed -> viewModel.dismissUndoSnapshot()
+                    }
+                }
+                is ResultsViewModel.DeleteEvent.PermanentDeletion -> snackbarHostState.showSnackbar(
+                    context.getString(R.string.results_delete_permanent, event.count),
                 )
                 is ResultsViewModel.DeleteEvent.PaywallRequired -> {
                     paywall = event
@@ -135,40 +157,11 @@ fun ResultsScreen(
                             )
                         }
                     }
-                    // Debug-only Pro toggle. Gated by `BuildConfig.DEBUG` so release builds
-                    // don't ship a one-tap bypass of the freemium gate. When real Play Billing
-                    // lands, this menu can go away entirely (or be replaced by a proper
-                    // subscription management entry point). `overflowOpen` is declared inside
-                    // the gate so release builds don't allocate the MutableState at all.
-                    if (com.miaclean.app.BuildConfig.DEBUG) {
-                        var overflowOpen by remember { mutableStateOf(false) }
-                        IconButton(onClick = { overflowOpen = true }) {
-                            Icon(imageVector = Icons.Filled.MoreVert, contentDescription = null)
-                        }
-                        DropdownMenu(
-                            expanded = overflowOpen,
-                            onDismissRequest = { overflowOpen = false },
-                        ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        stringResource(
-                                            if (entitlement == com.miaclean.app.data.entitlement.Entitlement.Pro) {
-                                                R.string.paywall_debug_toggle_off
-                                            } else {
-                                                R.string.paywall_debug_toggle_on
-                                            },
-                                        ),
-                                    )
-                                },
-                                onClick = {
-                                    viewModel.setProForDebug(
-                                        isPro = entitlement != com.miaclean.app.data.entitlement.Entitlement.Pro,
-                                    )
-                                    overflowOpen = false
-                                },
-                            )
-                        }
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(
+                            imageVector = Icons.Filled.Settings,
+                            contentDescription = stringResource(R.string.settings_title),
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(),

@@ -13,6 +13,19 @@ interface MediaHashDao {
     @Query("SELECT * FROM media_hash WHERE media_id = :mediaId LIMIT 1")
     suspend fun findByMediaId(mediaId: Long): MediaHashEntity?
 
+    @Query("SELECT * FROM media_hash WHERE media_id IN (:mediaIds)")
+    suspend fun findByMediaIdsChunk(mediaIds: List<Long>): List<MediaHashEntity>
+
+    /**
+     * Chunked wrapper around [findByMediaIdsChunk] mirroring [deleteByMediaIds] to stay under
+     * SQLite's 999-variable limit on API 26–30.
+     */
+    @Transaction
+    suspend fun findByMediaIds(mediaIds: List<Long>): List<MediaHashEntity> {
+        if (mediaIds.isEmpty()) return emptyList()
+        return mediaIds.chunked(CHUNK_SIZE).flatMap { findByMediaIdsChunk(it) }
+    }
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: MediaHashEntity): Long
 
