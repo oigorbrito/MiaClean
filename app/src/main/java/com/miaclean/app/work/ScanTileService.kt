@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -32,7 +33,10 @@ import javax.inject.Inject
  *
  * Lifecycle: [onStartListening] fires when the tile becomes visible in the QS tray (user pulls
  * the shade down). We only observe work state while listening — no wasted coroutines when the
- * tile is off-screen. [onClick] dispatches off the main thread because it reads DataStore.
+ * tile is off-screen. [onClick] uses `Dispatchers.Main.immediate`; DataStore's `first()` is
+ * suspend-not-blocking and internally hops to its own IO thread, so this doesn't jank the UI.
+ * The scope is cancelled in [onDestroy] so any in-flight `onClick` work (short-lived: a
+ * DataStore read plus a WorkManager enqueue) doesn't outlive the service.
  */
 @AndroidEntryPoint
 class ScanTileService : TileService() {
@@ -60,10 +64,19 @@ class ScanTileService : TileService() {
         observeJob = null
     }
 
+    override fun onDestroy() {
+        // Covers the edge case of an `onClick`-launched coroutine still in-flight (mid-DataStore-
+        // read) when the service is torn down — without this, the coroutine outlives the service
+        // and leaks its captured TileService reference until the read/enqueue completes.
+        scope.cancel()
+        super.onDestroy()
+    }
+
     override fun onClick() {
         super.onClick()
-        // DataStore read is suspend; hop to the IO dispatcher so we don't block the main thread
-        // even briefly while the shade is visible. Gate result is handled back on Main.
+        // DataStore's first() suspends (it doesn't block the caller), and it dispatches its own
+        // read onto an IO thread internally — so Main.immediate here is fine. We stay on Main so
+        // the gate-miss branch can call startActivityAndCollapse without an extra hop.
         scope.launch {
             val result = scanDispatcher.dispatch()
             when (result) {
