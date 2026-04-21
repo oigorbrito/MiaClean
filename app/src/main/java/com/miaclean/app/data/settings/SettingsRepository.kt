@@ -80,6 +80,8 @@ class SettingsRepository @Inject constructor(
 
     suspend fun currentLastNotifiedDuplicateCount(): Int = lastNotifiedDuplicateCount.first()
 
+    suspend fun currentOnboardingComplete(): Boolean = onboardingComplete.first()
+
     suspend fun setDeleteStrategy(strategy: DeleteStrategy) {
         context.deletePrefsDataStore.edit { prefs ->
             prefs[deleteStrategyKey] = strategy.name
