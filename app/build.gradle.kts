@@ -24,6 +24,13 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
+        // Pin the locales shipped in the APK. English is the base (values/), Portuguese and
+        // Spanish are region-specific. Without this filter, AGP would bundle every locale that
+        // any transitive dependency declares (dozens of Play Services entries) even though our
+        // own resources only cover three, inflating the APK and misleading the device's locale
+        // fallback. Keep in sync with app/src/main/res/values-*/ directories.
+        resourceConfigurations += setOf("en", "pt-rBR", "es")
+
         // Play Billing configuration. These are placeholder SKU ids: the real subscription /
         // one-time products must be created in Play Console with these exact ids (or the ids
         // below overridden to match). Until the ids exist on the backend,

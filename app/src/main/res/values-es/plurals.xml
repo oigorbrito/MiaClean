@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="onboarding_saf_count">
+        <item quantity="one">%d carpeta otorgada.</item>
+        <item quantity="other">%d carpetas otorgadas.</item>
+    </plurals>
+    <plurals name="finder_notification_summary_title">
+        <item quantity="one">%d duplicado nuevo</item>
+        <item quantity="other">%d duplicados nuevos</item>
+    </plurals>
+    <plurals name="finder_notification_child_title_screenshot">
+        <item quantity="one">%d captura nueva</item>
+        <item quantity="other">%d capturas nuevas</item>
+    </plurals>
+    <plurals name="finder_notification_child_title_selfie">
+        <item quantity="one">%d selfie nueva</item>
+        <item quantity="other">%d selfies nuevas</item>
+    </plurals>
+    <plurals name="finder_notification_child_title_meme">
+        <item quantity="one">%d meme nuevo</item>
+        <item quantity="other">%d memes nuevos</item>
+    </plurals>
+    <plurals name="finder_notification_child_title_photo">
+        <item quantity="one">%d foto nueva</item>
+        <item quantity="other">%d fotos nuevas</item>
+    </plurals>
+    <plurals name="finder_notification_child_title_video">
+        <item quantity="one">%d video nuevo</item>
+        <item quantity="other">%d videos nuevos</item>
+    </plurals>
+    <plurals name="finder_notification_child_title_other">
+        <item quantity="one">%d archivo nuevo</item>
+        <item quantity="other">%d archivos nuevos</item>
+    </plurals>
+</resources>

@@ -1,0 +1,121 @@
+<resources>
+    <string name="app_name">MIA Clean</string>
+
+    <!-- Quick Settings tile + launcher shortcut -->
+    <string name="tile_scan_idle">Escanear agora</string>
+    <string name="tile_scan_running">Escaneando…</string>
+    <string name="shortcut_scan_short">Escanear</string>
+    <string name="shortcut_scan_long">Escanear agora</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_title">Bem-vindo ao MIA Clean</string>
+    <string name="onboarding_subtitle">Encontre e remova mídias duplicadas do WhatsApp e da galeria com segurança.</string>
+    <string name="onboarding_permission_rationale">Precisamos de acesso às suas mídias para detectar duplicadas. Nenhum arquivo é enviado para fora do seu dispositivo.</string>
+    <string name="onboarding_grant">Conceder permissões</string>
+    <string name="onboarding_saf_hint">Se o WhatsApp não aparecer automaticamente, você poderá selecioná-lo manualmente via seletor de pasta.</string>
+    <string name="onboarding_saf_title">Acesso à pasta do WhatsApp</string>
+    <string name="onboarding_saf_none">Nenhuma pasta concedida ainda.</string>
+    <string name="onboarding_saf_grant">Selecionar pasta do WhatsApp</string>
+    <string name="onboarding_continue">Continuar</string>
+
+    <!-- Scan -->
+    <string name="scan_title">Procurando duplicadas</string>
+    <string name="scan_start">Iniciar scan</string>
+    <string name="scan_cancel">Cancelar</string>
+    <string name="scan_progress">Analisado %1$d de %2$d</string>
+    <string name="scan_idle">Toque em Iniciar scan para começar.</string>
+    <string name="scan_done">Scan concluído: %1$d duplicadas em %2$d grupos.</string>
+
+    <!-- Results -->
+    <string name="results_title">Resultados</string>
+    <string name="results_empty">Nenhuma duplicada encontrada ainda.</string>
+    <string name="results_group">Grupo %1$d • %2$d itens • %3$s</string>
+    <string name="results_back">Voltar</string>
+    <string name="results_strategy_exact">Duplicadas exatas (MD5)</string>
+    <string name="results_strategy_phash">Visualmente similares (pHash)</string>
+    <string name="results_strategy_semantic">Similaridade semântica (MediaPipe)</string>
+    <string name="results_preview_close">Fechar</string>
+    <string name="results_select_duplicates">Selecionar duplicadas</string>
+    <string name="results_clear_selection">Limpar</string>
+    <string name="results_selection_summary">%1$d selecionados • %2$s</string>
+    <string name="results_delete_action">Apagar %1$d</string>
+    <string name="results_delete_unsupported">Alguns itens não puderam ser apagados nesta versão do Android. Itens do WhatsApp via SAF continuam funcionando.</string>
+    <string name="results_delete_nothing">Não foi possível apagar os itens selecionados. Permissões podem ter sido revogadas ou os arquivos já foram removidos.</string>
+    <string name="results_delete_undoable">%1$d movidos para a lixeira</string>
+    <string name="results_delete_permanent">%1$d apagados</string>
+    <string name="results_delete_undo_failed">Não foi possível desfazer. Os itens podem ter saído da lixeira.</string>
+    <string name="results_delete_undo_action">Desfazer</string>
+    <string name="results_empty_filtered">Nenhuma duplicada nessa categoria.</string>
+    <string name="results_filter_all">Tudo</string>
+    <string name="category_screenshot">Screenshots</string>
+    <string name="category_selfie">Selfies</string>
+    <string name="category_meme">Memes</string>
+    <string name="category_photo">Fotos</string>
+    <string name="category_video">Vídeos</string>
+    <string name="category_other">Outros</string>
+
+    <!-- Freemium / paywall -->
+    <string name="paywall_title">Limite grátis atingido</string>
+    <string name="paywall_body_blocked">Você já usou %1$d de %2$d deleções grátis este mês. Faça upgrade para Pro para apagar itens ilimitados.</string>
+    <string name="paywall_body_partial">Apagamos %1$d itens, mas outros %2$d ficaram fora do seu limite grátis (%3$d/%4$d). Faça upgrade para Pro para apagar tudo de uma vez.</string>
+    <string name="paywall_upgrade">Fazer upgrade para Pro</string>
+    <string name="paywall_upgrade_stub">Compras ainda não disponíveis nesta versão. Em breve!</string>
+    <string name="paywall_dismiss">Agora não</string>
+    <string name="paywall_loading">Carregando opções…</string>
+    <string name="paywall_retry">Tentar novamente</string>
+    <string name="paywall_unavailable_generic">Não foi possível carregar as opções de assinatura. Verifique se o Google Play está configurado e tente novamente.</string>
+    <string name="paywall_unavailable_disconnected">Conexão com o Google Play caiu. Tentando reconectar…</string>
+    <string name="paywall_unavailable_billing">O Google Play informou que compras não estão disponíveis neste dispositivo/conta.</string>
+    <string name="paywall_unavailable_feature">Este dispositivo não suporta compras do Google Play.</string>
+    <string name="paywall_unavailable_empty">Nenhum plano configurado. Se você é o desenvolvedor, cadastre os produtos no Play Console.</string>
+    <string name="paywall_product_monthly">Pro mensal</string>
+    <string name="paywall_product_yearly">Pro anual</string>
+    <string name="paywall_product_lifetime">Pro vitalício</string>
+    <string name="paywall_buy">Assinar</string>
+    <string name="paywall_buy_lifetime">Comprar</string>
+    <string name="paywall_error_launch">Não foi possível abrir o fluxo de compra. Tente novamente.</string>
+    <string name="paywall_purchase_success">Obrigado! Seu acesso Pro está ativo.</string>
+    <string name="paywall_budget_chip">%1$d/%2$d grátis</string>
+    <string name="paywall_pro_chip">Pro</string>
+    <string name="paywall_debug_toggle_on">Ativar Pro (debug)</string>
+    <string name="paywall_debug_toggle_off">Desativar Pro (debug)</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Configurações</string>
+    <string name="settings_delete_strategy_title">Ao apagar duplicadas</string>
+    <string name="settings_delete_strategy_subtitle">Escolha o que acontece com os arquivos removidos. Só afeta Android 11 ou superior — em versões anteriores, a remoção é sempre definitiva.</string>
+    <string name="settings_strategy_trash">Mover para a lixeira (recomendado)</string>
+    <string name="settings_strategy_trash_desc">Os arquivos vão para a lixeira do sistema e podem ser restaurados por 30 dias. Você verá um botão Desfazer por alguns segundos após apagar.</string>
+    <string name="settings_strategy_permanent">Apagar definitivamente</string>
+    <string name="settings_strategy_permanent_desc">Os arquivos são removidos imediatamente e não podem ser recuperados. Libera espaço na hora, sem desfazer.</string>
+    <string name="settings_debug_section">Debug</string>
+    <string name="settings_debug_pro_toggle">Simular assinatura Pro</string>
+    <string name="settings_debug_pro_toggle_desc">Alterna o entitlement localmente para testar o gating sem passar pelo Play Billing.</string>
+    <string name="settings_background_scan_title">Scan automático em segundo plano</string>
+    <string name="settings_background_scan_desc">A cada ~24h, enquanto o dispositivo está carregando ou ocioso, o MIA Clean atualiza o cache de duplicadas. Desligue se preferir scanear só manualmente.</string>
+    <string name="settings_notify_title">Avisar quando encontrar duplicadas novas</string>
+    <string name="settings_notify_desc">Mostra uma notificação quando o scan automático acha duplicadas que ainda não foram limpas. Precisa de permissão de notificação no Android 13+.</string>
+
+    <!-- Work -->
+    <string name="work_notification_channel_name">Scan em segundo plano</string>
+    <string name="work_notification_channel_description">Notificações sobre progresso do scan.</string>
+    <string name="work_notification_title">MIA Clean</string>
+    <string name="work_notification_content">Analisando mídias…</string>
+
+    <!-- Finder notification (post-scan "N new duplicates found") -->
+    <string name="finder_notification_channel_name">Duplicadas encontradas</string>
+    <string name="finder_notification_channel_description">Avisa quando o scan automático acha duplicadas novas prontas para limpar.</string>
+    <string name="finder_notification_body">Toque para liberar cerca de %1$s</string>
+    <string name="finder_notification_summary_body">em %1$d categorias • ~%2$s</string>
+
+    <!-- Home-screen widget (Glance) -->
+    <string name="widget_title">MIA Clean</string>
+    <string name="widget_description">Veja duplicadas na tela inicial e escaneie com um toque.</string>
+    <string name="widget_onboarding_pending">Toque para configurar o MIA Clean</string>
+    <string name="widget_needs_permission">Toque para permitir acesso às mídias</string>
+    <string name="widget_ready_to_scan">Pronto para procurar duplicadas</string>
+    <string name="widget_no_duplicates">Tudo limpo por aqui</string>
+    <string name="widget_scan_now">Escanear</string>
+    <string name="widget_scan_again">Escanear novamente</string>
+    <string name="widget_reclaimable">~%1$s recuperáveis</string>
+</resources>
