@@ -68,6 +68,8 @@ fun ResultsScreen(
     onBack: () -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: ResultsViewModel = hiltViewModel(),
+    // See note on `MiaCleanRoot`'s defaults: wrapped in `remember` so ad-hoc previews get a
+    // stable `MutableState` across recompositions instead of a fresh one per call.
     pendingCategoryFilter: androidx.compose.runtime.MutableState<MediaCategory?> =
         androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(null) },
 ) {

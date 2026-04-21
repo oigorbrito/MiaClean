@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -25,8 +26,13 @@ object Routes {
 
 @Composable
 fun MiaCleanRoot(
-    pendingOpenResults: MutableState<Boolean> = mutableStateOf(false),
-    pendingCategoryFilter: MutableState<MediaCategory?> = mutableStateOf(null),
+    // Defaults are wrapped in `remember` so a `@Preview` or test that calls `MiaCleanRoot()`
+    // without args gets a single stable `MutableState` instance across recompositions instead
+    // of a fresh one per invocation. The production call site in `MainActivity.setContent`
+    // always passes both arguments explicitly, so the defaults are dead code in the shipped
+    // app — but wrapping is free and prevents a future `@Preview` author from tripping on it.
+    pendingOpenResults: MutableState<Boolean> = remember { mutableStateOf(false) },
+    pendingCategoryFilter: MutableState<MediaCategory?> = remember { mutableStateOf(null) },
 ) {
     val nav: NavHostController = rememberNavController()
 
