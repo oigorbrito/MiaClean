@@ -45,7 +45,20 @@ fun PaywallDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.paywall_title)) },
+        title = {
+            Text(
+                stringResource(
+                    when (state.context) {
+                        ResultsViewModel.DeleteEvent.PaywallContext.BudgetBlocked ->
+                            R.string.paywall_title_blocked
+                        ResultsViewModel.DeleteEvent.PaywallContext.PartialAfterDelete ->
+                            R.string.paywall_title_partial
+                        ResultsViewModel.DeleteEvent.PaywallContext.ManualOpen ->
+                            R.string.paywall_title_manual
+                    },
+                ),
+            )
+        },
         text = {
             Column {
                 val body = if (state.dropped > 0) {

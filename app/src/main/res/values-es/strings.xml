@@ -39,6 +39,11 @@
     <string name="results_clear_selection">Limpiar</string>
     <string name="results_selection_summary">%1$d seleccionados • %2$s</string>
     <string name="results_delete_action">Eliminar %1$d</string>
+    <string name="results_delete_confirm_title_trash">¿Mover los elementos seleccionados a la papelera?</string>
+    <string name="results_delete_confirm_title_permanent">¿Eliminar permanentemente los elementos seleccionados?</string>
+    <string name="results_delete_confirm_body">%1$d elementos (%2$s) se quitarán de tu dispositivo.</string>
+    <string name="results_delete_confirm_action">Continuar</string>
+    <string name="results_delete_confirm_cancel">Cancelar</string>
     <string name="results_delete_unsupported">Algunos elementos no se pudieron eliminar en esta versión de Android. Los de WhatsApp vía SAF siguen funcionando.</string>
     <string name="results_delete_nothing">No se pudieron eliminar los elementos seleccionados. Puede que se hayan revocado los permisos o que los archivos ya no existan.</string>
     <string name="results_delete_undoable">%1$d movidos a la papelera</string>
@@ -50,12 +55,15 @@
     <string name="category_screenshot">Capturas</string>
     <string name="category_selfie">Selfies</string>
     <string name="category_meme">Memes</string>
+    <string name="category_document">Documentos</string>
     <string name="category_photo">Fotos</string>
     <string name="category_video">Videos</string>
     <string name="category_other">Otros</string>
 
     <!-- Freemium / paywall -->
-    <string name="paywall_title">Límite gratuito alcanzado</string>
+    <string name="paywall_title_blocked">Límite gratuito alcanzado</string>
+    <string name="paywall_title_partial">Se omitieron algunos elementos</string>
+    <string name="paywall_title_manual">Actualizar a Pro</string>
     <string name="paywall_body_blocked">Ya usaste %1$d de %2$d eliminaciones gratuitas este mes. Actualiza a Pro para eliminar elementos ilimitados.</string>
     <string name="paywall_body_partial">Eliminamos %1$d elementos, pero otros %2$d quedaron fuera de tu límite gratuito (%3$d/%4$d). Actualiza a Pro para eliminar todo de una vez.</string>
     <string name="paywall_upgrade">Actualizar a Pro</string>

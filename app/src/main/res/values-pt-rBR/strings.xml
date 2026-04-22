@@ -39,6 +39,11 @@
     <string name="results_clear_selection">Limpar</string>
     <string name="results_selection_summary">%1$d selecionados • %2$s</string>
     <string name="results_delete_action">Apagar %1$d</string>
+    <string name="results_delete_confirm_title_trash">Mover os itens selecionados para a lixeira?</string>
+    <string name="results_delete_confirm_title_permanent">Apagar permanentemente os itens selecionados?</string>
+    <string name="results_delete_confirm_body">%1$d itens (%2$s) serão removidos do seu dispositivo.</string>
+    <string name="results_delete_confirm_action">Continuar</string>
+    <string name="results_delete_confirm_cancel">Cancelar</string>
     <string name="results_delete_unsupported">Alguns itens não puderam ser apagados nesta versão do Android. Itens do WhatsApp via SAF continuam funcionando.</string>
     <string name="results_delete_nothing">Não foi possível apagar os itens selecionados. Permissões podem ter sido revogadas ou os arquivos já foram removidos.</string>
     <string name="results_delete_undoable">%1$d movidos para a lixeira</string>
@@ -50,12 +55,15 @@
     <string name="category_screenshot">Screenshots</string>
     <string name="category_selfie">Selfies</string>
     <string name="category_meme">Memes</string>
+    <string name="category_document">Documentos</string>
     <string name="category_photo">Fotos</string>
     <string name="category_video">Vídeos</string>
     <string name="category_other">Outros</string>
 
     <!-- Freemium / paywall -->
-    <string name="paywall_title">Limite grátis atingido</string>
+    <string name="paywall_title_blocked">Limite grátis atingido</string>
+    <string name="paywall_title_partial">Alguns itens foram ignorados</string>
+    <string name="paywall_title_manual">Fazer upgrade para Pro</string>
     <string name="paywall_body_blocked">Você já usou %1$d de %2$d deleções grátis este mês. Faça upgrade para Pro para apagar itens ilimitados.</string>
     <string name="paywall_body_partial">Apagamos %1$d itens, mas outros %2$d ficaram fora do seu limite grátis (%3$d/%4$d). Faça upgrade para Pro para apagar tudo de uma vez.</string>
     <string name="paywall_upgrade">Fazer upgrade para Pro</string>

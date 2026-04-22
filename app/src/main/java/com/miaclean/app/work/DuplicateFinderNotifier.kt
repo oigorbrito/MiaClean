@@ -244,6 +244,7 @@ class DuplicateFinderNotifier @Inject constructor(
         MediaCategory.Screenshot -> R.plurals.finder_notification_child_title_screenshot
         MediaCategory.Selfie -> R.plurals.finder_notification_child_title_selfie
         MediaCategory.Meme -> R.plurals.finder_notification_child_title_meme
+        MediaCategory.Document -> R.plurals.finder_notification_child_title_document
         MediaCategory.Photo -> R.plurals.finder_notification_child_title_photo
         MediaCategory.Video -> R.plurals.finder_notification_child_title_video
         MediaCategory.Other -> R.plurals.finder_notification_child_title_other

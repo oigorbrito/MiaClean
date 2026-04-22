@@ -39,6 +39,11 @@
     <string name="results_clear_selection">Clear</string>
     <string name="results_selection_summary">%1$d selected • %2$s</string>
     <string name="results_delete_action">Delete %1$d</string>
+    <string name="results_delete_confirm_title_trash">Move selected items to trash?</string>
+    <string name="results_delete_confirm_title_permanent">Permanently delete selected items?</string>
+    <string name="results_delete_confirm_body">%1$d items (%2$s) will be removed from your device.</string>
+    <string name="results_delete_confirm_action">Continue</string>
+    <string name="results_delete_confirm_cancel">Cancel</string>
     <string name="results_delete_unsupported">Some items couldn\'t be deleted on this Android version. WhatsApp items via SAF still work.</string>
     <string name="results_delete_nothing">Couldn\'t delete the selected items. Permissions may have been revoked or the files are already gone.</string>
     <string name="results_delete_undoable">%1$d moved to trash</string>
@@ -50,12 +55,15 @@
     <string name="category_screenshot">Screenshots</string>
     <string name="category_selfie">Selfies</string>
     <string name="category_meme">Memes</string>
+    <string name="category_document">Documents</string>
     <string name="category_photo">Photos</string>
     <string name="category_video">Videos</string>
     <string name="category_other">Other</string>
 
     <!-- Freemium / paywall -->
-    <string name="paywall_title">Free limit reached</string>
+    <string name="paywall_title_blocked">Free limit reached</string>
+    <string name="paywall_title_partial">Some items were skipped</string>
+    <string name="paywall_title_manual">Upgrade to Pro</string>
     <string name="paywall_body_blocked">You\'ve used %1$d of %2$d free deletions this month. Upgrade to Pro to delete unlimited items.</string>
     <string name="paywall_body_partial">We deleted %1$d items, but another %2$d fell outside your free limit (%3$d/%4$d). Upgrade to Pro to delete everything at once.</string>
     <string name="paywall_upgrade">Upgrade to Pro</string>
