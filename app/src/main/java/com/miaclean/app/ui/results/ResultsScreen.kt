@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
@@ -56,7 +57,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.miaclean.app.BuildConfig
 import com.miaclean.app.R
+import com.miaclean.app.data.settings.DeleteStrategy
 import com.miaclean.app.domain.DuplicateGroup
 import com.miaclean.app.domain.MediaCategory
 import com.miaclean.app.domain.MediaItem
@@ -79,11 +82,13 @@ fun ResultsScreen(
     val categoryFilter by viewModel.categoryFilter.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
     val selectionSummary by viewModel.selectionSummary.collectAsStateWithLifecycle()
+    val deleteStrategy by viewModel.deleteStrategy.collectAsStateWithLifecycle()
     val entitlement by viewModel.entitlement.collectAsStateWithLifecycle()
     val deletesThisMonth by viewModel.deletesThisMonth.collectAsStateWithLifecycle()
     val billingState by viewModel.billingState.collectAsStateWithLifecycle()
     var preview by remember { mutableStateOf<MediaItem?>(null) }
     var paywall by remember { mutableStateOf<ResultsViewModel.DeleteEvent.PaywallRequired?>(null) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -228,7 +233,7 @@ fun ResultsScreen(
                     },
                     floatingActionButton = {
                         ExtendedFloatingActionButton(
-                            onClick = viewModel::requestDelete,
+                            onClick = { showDeleteConfirm = true },
                             icon = {
                                 Icon(
                                     imageVector = Icons.Filled.DeleteSweep,
@@ -301,6 +306,50 @@ fun ResultsScreen(
         MediaPreviewDialog(item = item, onDismiss = { preview = null })
     }
 
+    if (showDeleteConfirm) {
+        val summary = selectionSummary as? ResultsViewModel.SelectionSummary.Some
+        if (summary == null) {
+            showDeleteConfirm = false
+        } else {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirm = false },
+                title = {
+                    Text(
+                        stringResource(
+                            if (deleteStrategy == DeleteStrategy.Trash) {
+                                R.string.results_delete_confirm_title_trash
+                            } else {
+                                R.string.results_delete_confirm_title_permanent
+                            },
+                        ),
+                    )
+                },
+                text = {
+                    Text(
+                        stringResource(
+                            R.string.results_delete_confirm_body,
+                            summary.count,
+                            formatBytes(summary.totalBytes),
+                        ),
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showDeleteConfirm = false
+                        viewModel.requestDelete()
+                    }) {
+                        Text(stringResource(R.string.results_delete_confirm_action))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirm = false }) {
+                        Text(stringResource(R.string.results_delete_confirm_cancel))
+                    }
+                },
+            )
+        }
+    }
+
     paywall?.let { state ->
         PaywallDialog(
             state = state,
@@ -335,7 +384,7 @@ private fun EntitlementChip(
         com.miaclean.app.data.entitlement.Entitlement.Free -> stringResource(
             R.string.paywall_budget_chip,
             used,
-            com.miaclean.app.data.entitlement.EntitlementEvaluator.FREE_DELETES_PER_MONTH,
+            BuildConfig.FREE_DELETES_PER_MONTH,
         )
     }
     AssistChip(
@@ -399,6 +448,7 @@ private fun MediaCategory.displayLabel(): String = stringResource(
         MediaCategory.Screenshot -> R.string.category_screenshot
         MediaCategory.Selfie -> R.string.category_selfie
         MediaCategory.Meme -> R.string.category_meme
+        MediaCategory.Document -> R.string.category_document
         MediaCategory.Photo -> R.string.category_photo
         MediaCategory.Video -> R.string.category_video
         MediaCategory.Other -> R.string.category_other

@@ -43,18 +43,21 @@ import kotlin.coroutines.resume
  *  * Acknowledge every new PURCHASED purchase within the 3-day SLA.
  *  * Refresh the entitlement from the source of truth ([BillingClient.queryPurchasesAsync])
  *    whenever the app is resumed or a purchase update fires.
+ *  * Optionally override the local entitlement decision with server-side verification via
+ *    [BillingEntitlementApi] when `BuildConfig.BILLING_BACKEND_URL` is configured.
  *
  * Designed to be a single [Singleton] so the [BillingClient] connection and cached
  * [ProductDetails] survive Activity rotation.
  *
- * **Not covered**: server-side receipt validation via Google Play Developer API. Client-side
- * signature verification via [PurchaseVerifier] is the highest-assurance check available
- * without a backend — see the class-level comment there for the threat model.
+ * This repository can consume an optional server-side entitlement decision via
+ * [BillingEntitlementApi]. When no backend is configured or a call fails, it falls back to
+ * local client-side verification via [PurchaseVerifier].
  */
 @Singleton
 class PlayBillingRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val entitlementRepository: EntitlementRepository,
+    private val billingEntitlementApi: BillingEntitlementApi,
 ) : PurchasesUpdatedListener {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -116,6 +119,16 @@ class PlayBillingRepository @Inject constructor(
      * on a successful connect, updated from [Dispatchers.Default] in `scheduleReconnect()`.
      */
     private val reconnectBackoffMillis = AtomicLong(INITIAL_RECONNECT_BACKOFF_MS)
+
+    /**
+     * Last explicit server entitlement decision. Used as a short grace fallback when the backend
+     * is temporarily unavailable and local verification returns Free due to transient query noise.
+     */
+    @Volatile
+    private var lastServerIsPro: Boolean? = null
+
+    @Volatile
+    private var lastServerDecisionMs: Long = 0L
 
     /**
      * Kicks off the connection / product query. Safe to call multiple times — no-op if the
@@ -356,8 +369,36 @@ class PlayBillingRepository @Inject constructor(
         }
         val unacknowledged = PurchaseMapper.unacknowledgedProPurchases(verified, proProductIds)
         unacknowledged.forEach { acknowledge(it) }
-        val isPro = PurchaseMapper.isPro(verified, proProductIds)
-        entitlementRepository.setProFromPurchase(isPro)
+        val localIsPro = PurchaseMapper.isPro(verified, proProductIds)
+        val serverIsPro = billingEntitlementApi.resolveIsPro(
+            purchases = verified,
+            localIsPro = localIsPro,
+        )
+        if (serverIsPro != null) {
+            lastServerIsPro = serverIsPro
+            lastServerDecisionMs = System.currentTimeMillis()
+            Log.i(TAG, "Entitlement resolved from backend: isPro=$serverIsPro")
+            entitlementRepository.setProFromPurchase(serverIsPro)
+        } else {
+            val resolved = resolveWithServerGraceFallback(localIsPro)
+            Log.i(TAG, "Entitlement resolved locally (backend unavailable): isPro=$resolved")
+            entitlementRepository.setProFromPurchase(resolved)
+        }
+    }
+
+    private fun resolveWithServerGraceFallback(localIsPro: Boolean): Boolean {
+        if (localIsPro) return true
+        val lastServer = lastServerIsPro
+        val ageMs = System.currentTimeMillis() - lastServerDecisionMs
+        return if (lastServer == true && ageMs in 0..SERVER_FALLBACK_GRACE_MS) {
+            Log.i(
+                TAG,
+                "Keeping Pro via server grace fallback for ${ageMs}ms while backend is unavailable",
+            )
+            true
+        } else {
+            false
+        }
     }
 
     private suspend fun acknowledge(purchase: Purchase) {
@@ -425,5 +466,6 @@ class PlayBillingRepository @Inject constructor(
         const val TAG = "PlayBillingRepository"
         const val INITIAL_RECONNECT_BACKOFF_MS = 1_000L
         const val MAX_RECONNECT_BACKOFF_MS = 30_000L
+        const val SERVER_FALLBACK_GRACE_MS = 24L * 60L * 60L * 1_000L
     }
 }

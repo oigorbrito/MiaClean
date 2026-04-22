@@ -20,6 +20,10 @@
         <item quantity="one">%d meme nuevo</item>
         <item quantity="other">%d memes nuevos</item>
     </plurals>
+    <plurals name="finder_notification_child_title_document">
+        <item quantity="one">%d documento nuevo</item>
+        <item quantity="other">%d documentos nuevos</item>
+    </plurals>
     <plurals name="finder_notification_child_title_photo">
         <item quantity="one">%d foto nueva</item>
         <item quantity="other">%d fotos nuevas</item>

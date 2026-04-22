@@ -22,6 +22,43 @@ class MediaClassifierTest {
     }
 
     @Test
+    fun `archive mime does not map to Document`() {
+        val item = item(mime = "application/x-zip-compressed", name = "backup.zip", path = "Download/")
+        assertEquals(MediaCategory.Other, classifier.classify(item))
+    }
+
+    @Test
+    fun `pdf mime maps to Document`() {
+        val item = item(
+            mime = "application/pdf",
+            name = "contract.pdf",
+            path = "Download/Documents/",
+        )
+        assertEquals(MediaCategory.Document, classifier.classify(item))
+    }
+
+    @Test
+    fun `whatsapp documents path maps to Document`() {
+        val item = item(
+            mime = "application/octet-stream",
+            name = "invoice_2026-04.docx",
+            path = "WhatsApp/Media/WhatsApp Documents/",
+            whatsApp = true,
+        )
+        assertEquals(MediaCategory.Document, classifier.classify(item))
+    }
+
+    @Test
+    fun `document extension maps to Document even on generic mime`() {
+        val item = item(
+            mime = "application/octet-stream",
+            name = "taxes_2025.xlsx",
+            path = "Download/",
+        )
+        assertEquals(MediaCategory.Document, classifier.classify(item))
+    }
+
+    @Test
     fun `screenshot by relative path`() {
         val item = item(
             mime = "image/png",
@@ -73,6 +110,18 @@ class MediaClassifierTest {
             path = "WhatsApp/Media/WhatsApp Images/",
             whatsApp = true,
             size = 4L * 1024 * 1024,
+        )
+        assertEquals(MediaCategory.Photo, classifier.classify(item))
+    }
+
+    @Test
+    fun `whatsapp camera style image is not classified as Meme`() {
+        val item = item(
+            mime = "image/jpeg",
+            name = "IMG_20240101_120000.jpg",
+            path = "WhatsApp/Media/WhatsApp Images/",
+            whatsApp = true,
+            size = 120 * 1024,
         )
         assertEquals(MediaCategory.Photo, classifier.classify(item))
     }
