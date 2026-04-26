@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.app.Activity
 import com.android.billingclient.api.BillingClient
+import com.miaclean.app.BuildConfig
 import com.miaclean.app.data.ScanRepository
 import com.miaclean.app.data.billing.BillingProduct
 import com.miaclean.app.data.billing.BillingState
@@ -19,6 +20,7 @@ import com.miaclean.app.data.entitlement.Entitlement
 import com.miaclean.app.data.entitlement.EntitlementEvaluator
 import com.miaclean.app.data.entitlement.EntitlementRepository
 import com.miaclean.app.data.settings.SettingsRepository
+import com.miaclean.app.data.settings.DeleteStrategy
 import com.miaclean.app.domain.DuplicateGroup
 import com.miaclean.app.domain.MediaCategory
 import com.miaclean.app.widget.WidgetSummaryUpdater
@@ -49,6 +51,8 @@ class ResultsViewModel @Inject constructor(
     private val widgetSummaryUpdater: WidgetSummaryUpdater,
 ) : ViewModel() {
 
+    private val freeDeletesPerMonthLimit: Int = BuildConfig.FREE_DELETES_PER_MONTH
+
     val entitlement: StateFlow<Entitlement> =
         entitlementRepository.entitlement.stateIn(
             viewModelScope, SharingStarted.Eagerly, Entitlement.Free,
@@ -67,6 +71,11 @@ class ResultsViewModel @Inject constructor(
     val deletesThisMonth: StateFlow<Int> =
         entitlementRepository.deletesThisMonth.stateIn(
             viewModelScope, SharingStarted.Eagerly, 0,
+        )
+
+    val deleteStrategy: StateFlow<DeleteStrategy> =
+        settingsRepository.deleteStrategy.stateIn(
+            viewModelScope, SharingStarted.Eagerly, DeleteStrategy.Trash,
         )
 
     private val _groups = MutableStateFlow<List<DuplicateGroup>>(emptyList())
@@ -254,6 +263,7 @@ class ResultsViewModel @Inject constructor(
                     entitlement = state.entitlement,
                     requested = initialItems.size,
                     used = state.deletesThisMonth,
+                    limit = freeDeletesPerMonthLimit,
                 )
                 val items = when (decision) {
                     is EntitlementEvaluator.Decision.Allow -> initialItems
@@ -265,6 +275,7 @@ class ResultsViewModel @Inject constructor(
                                 limit = decision.limit,
                                 allowed = 0,
                                 dropped = 0,
+                                context = DeleteEvent.PaywallContext.BudgetBlocked,
                             ),
                         )
                         return@launch
@@ -279,6 +290,7 @@ class ResultsViewModel @Inject constructor(
                         limit = decision.limit,
                         allowed = decision.allowed,
                         dropped = decision.denied,
+                        context = DeleteEvent.PaywallContext.PartialAfterDelete,
                     )
                 }
                 val strategy = settingsRepository.deleteStrategy.first()
@@ -523,9 +535,10 @@ class ResultsViewModel @Inject constructor(
             _deleteEvents.send(
                 DeleteEvent.PaywallRequired(
                     used = state.deletesThisMonth,
-                    limit = EntitlementEvaluator.FREE_DELETES_PER_MONTH,
+                    limit = freeDeletesPerMonthLimit,
                     allowed = 0,
                     dropped = 0,
+                    context = DeleteEvent.PaywallContext.ManualOpen,
                 ),
             )
         }
@@ -593,7 +606,14 @@ class ResultsViewModel @Inject constructor(
             val limit: Int,
             val allowed: Int,
             val dropped: Int,
+            val context: PaywallContext,
         ) : DeleteEvent
+
+        enum class PaywallContext {
+            BudgetBlocked,
+            PartialAfterDelete,
+            ManualOpen,
+        }
 
         /**
          * [PlayBillingRepository.launchPurchaseFlow] returned a non-OK [BillingResult]. The UI

@@ -41,12 +41,17 @@ android {
         buildConfigField("String", "BILLING_SKU_MONTHLY", "\"pro_monthly\"")
         buildConfigField("String", "BILLING_SKU_YEARLY", "\"pro_yearly\"")
         buildConfigField("String", "BILLING_SKU_LIFETIME", "\"pro_lifetime\"")
+        // Free-tier monthly delete allowance surfaced by EntitlementEvaluator/Results UI.
+        buildConfigField("int", "FREE_DELETES_PER_MONTH", "50")
         // Base-64 RSA public key from Play Console > Monetize > License testing. Used to verify
         // purchase signatures client-side. When empty (debug / pre-release builds) signature
         // verification is skipped with a warning log; callers should NOT rely on verification in
         // this state. Release builds with an empty key should fail fast at the repository layer
         // rather than silently trusting unverified purchases.
         buildConfigField("String", "BILLING_PUBLIC_KEY", "\"\"")
+        // Optional backend endpoint for server-side billing entitlement verification.
+        // When blank, the app falls back to local Play Billing-derived entitlement state.
+        buildConfigField("String", "BILLING_BACKEND_URL", "\"\"")
     }
 
     buildTypes {

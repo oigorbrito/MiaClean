@@ -14,6 +14,9 @@ enum class MediaCategory {
     /** Low-resolution/image messages that look like WhatsApp forwards — memes, jokes, images. */
     Meme,
 
+    /** Documents such as PDFs, Office files, and text docs shared via WhatsApp/downloads. */
+    Document,
+
     /** Any other image (camera rolls, downloads, etc.). */
     Photo,
 
