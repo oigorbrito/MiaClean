@@ -95,6 +95,10 @@
     <string name="settings_background_scan_desc">A cada ~24h, enquanto o dispositivo está carregando ou ocioso, o MIA Clean atualiza o cache de duplicadas. Desligue se preferir scanear só manualmente.</string>
     <string name="settings_notify_title">Avisar quando encontrar duplicadas novas</string>
     <string name="settings_notify_desc">Mostra uma notificação quando o scan automático acha duplicadas que ainda não foram limpas. Precisa de permissão de notificação no Android 13+.</string>
+    <string name="settings_widget_section_title">Widget na tela inicial</string>
+    <string name="settings_widget_section_desc">Mantenha a contagem de duplicadas e o atalho de scan a um toque de distância na tela inicial.</string>
+    <string name="settings_widget_pin_button">Adicionar widget à tela inicial</string>
+    <string name="settings_widget_pin_unsupported">Seu launcher não permite adicionar widgets automaticamente. Segure a tela inicial e escolha MIA Clean na lista de widgets.</string>
 
     <!-- Work -->
     <string name="work_notification_channel_name">Scan em segundo plano</string>

@@ -1,17 +1,36 @@
 package com.miaclean.app.widget
 
+import com.miaclean.app.domain.MediaCategory
+
 /**
  * Persistent snapshot written by [com.miaclean.app.work.ScanWorker] / [com.miaclean.app.data.ScanRepository]
  * after each successful scan. The widget reads it directly from DataStore — no Room query path
  * so launcher-process renders don't pay a database attach + decryption cost every 30 minutes.
+ *
+ * [thumbnailUris] and [categoryCounts] are best-effort enrichment for the 2x2 layout:
+ *  - [thumbnailUris] holds up to 3 `content://` URIs of individual items picked from the top
+ *    groups by reclaimable bytes. Widget rendering tolerates missing/invalid URIs (item deleted
+ *    between scan and refresh) by falling back to the thumb-less text layout for that slot.
+ *  - [categoryCounts] is the keeper-aware excess per `dominantCategory`, used for the chip-row
+ *    breakdown. Sum across entries MAY NOT equal [duplicateCount] when a group has mixed-category
+ *    items (dominantCategory wins, tied items undercount) — treat the chip row as a hint, same
+ *    spirit as [com.miaclean.app.domain.DuplicateGroup.dominantCategory] itself.
  */
 data class WidgetSummary(
     val hasScanned: Boolean,
     val duplicateCount: Int,
     val reclaimableBytes: Long,
+    val thumbnailUris: List<String> = emptyList(),
+    val categoryCounts: Map<MediaCategory, Int> = emptyMap(),
 ) {
     companion object {
-        val Empty = WidgetSummary(hasScanned = false, duplicateCount = 0, reclaimableBytes = 0L)
+        val Empty = WidgetSummary(
+            hasScanned = false,
+            duplicateCount = 0,
+            reclaimableBytes = 0L,
+            thumbnailUris = emptyList(),
+            categoryCounts = emptyMap(),
+        )
     }
 }
 
@@ -38,8 +57,20 @@ sealed interface WidgetState {
     /** Latest scan found no duplicates. Button re-runs the scan. */
     data object NoDuplicates : WidgetState
 
-    /** Latest scan found duplicates. Button re-runs the scan; body taps open Results. */
-    data class HasDuplicates(val count: Int, val reclaimableBytes: Long) : WidgetState
+    /**
+     * Latest scan found duplicates. Button re-runs the scan; body taps open Results.
+     *
+     * [thumbnailUris] and [categoryCounts] are best-effort — absent or empty on pre-upgrade
+     * snapshots persisted before the enrichment landed, and also empty if every candidate URI
+     * has become unreadable between scan and render. The widget layout falls back to the
+     * text-only rendering when these are empty, so the mapper does not need to gate on them.
+     */
+    data class HasDuplicates(
+        val count: Int,
+        val reclaimableBytes: Long,
+        val thumbnailUris: List<String> = emptyList(),
+        val categoryCounts: Map<MediaCategory, Int> = emptyMap(),
+    ) : WidgetState
 }
 
 /**
@@ -69,6 +100,8 @@ object WidgetStateMapper {
         else -> WidgetState.HasDuplicates(
             count = summary.duplicateCount,
             reclaimableBytes = summary.reclaimableBytes.coerceAtLeast(0L),
+            thumbnailUris = summary.thumbnailUris,
+            categoryCounts = summary.categoryCounts.filterValues { it > 0 },
         )
     }
 }

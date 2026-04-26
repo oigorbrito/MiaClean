@@ -2,6 +2,7 @@ package com.miaclean.app.ui.settings
 
 import android.Manifest
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -18,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -26,8 +28,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -46,6 +50,11 @@ fun SettingsScreen(
     val backgroundScanEnabled by viewModel.backgroundScanEnabled.collectAsStateWithLifecycle()
     val notifyOnNewDuplicates by viewModel.notifyOnNewDuplicates.collectAsStateWithLifecycle()
     val entitlement by viewModel.entitlement.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    // Cheap call (no IPC), but caching avoids re-querying AppWidgetManager on every recompose.
+    // Launcher swaps require an app restart to take effect anyway, so a stale value across
+    // recompositions is fine.
+    val pinSupported = remember { viewModel.isPinWidgetSupported() }
 
     // Requesting POST_NOTIFICATIONS only matters on API 33+. If the user denies we still flip the
     // preference — the notifier will simply no-op on each cycle until the user grants it from
@@ -124,6 +133,46 @@ fun SettingsScreen(
                     }
                 },
             )
+
+            // --- Widget section ---
+            // Hidden entirely on launchers that don't expose `requestPinAppWidget`. Showing a
+            // disabled button or a "not supported" message would just teach the user that the
+            // app is broken on their phone — better to omit and let them long-press the home
+            // screen as they already do for any other widget.
+            if (pinSupported) {
+                Spacer(Modifier.height(24.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = stringResource(R.string.settings_widget_section_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.settings_widget_section_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = {
+                        // requestPinAppWidget can still return false even when isSupported() was
+                        // true — some launchers advertise support per-call, e.g. when the widget
+                        // picker is disabled by enterprise policy. Toast the manual-drag hint in
+                        // that case rather than failing silently.
+                        val enqueued = viewModel.requestPinWidget()
+                        if (!enqueued) {
+                            Toast.makeText(
+                                context,
+                                R.string.settings_widget_pin_unsupported,
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        }
+                    },
+                ) {
+                    Text(stringResource(R.string.settings_widget_pin_button))
+                }
+            }
 
             // --- Debug section (debug builds only) ---
             if (com.miaclean.app.BuildConfig.DEBUG) {

@@ -95,6 +95,10 @@
     <string name="settings_background_scan_desc">Every ~24h, while the device is charging or idle, MIA Clean refreshes the duplicates cache. Turn off if you prefer scanning only manually.</string>
     <string name="settings_notify_title">Notify when new duplicates are found</string>
     <string name="settings_notify_desc">Shows a notification when the automatic scan finds duplicates you haven\'t cleaned up yet. Requires notification permission on Android 13+.</string>
+    <string name="settings_widget_section_title">Home-screen widget</string>
+    <string name="settings_widget_section_desc">Keep the duplicate count and scan shortcut one tap away on your home screen.</string>
+    <string name="settings_widget_pin_button">Add widget to home screen</string>
+    <string name="settings_widget_pin_unsupported">Your launcher can\'t pin widgets automatically. Long-press the home screen and pick MIA Clean from the widget list.</string>
 
     <!-- Work -->
     <string name="work_notification_channel_name">Background scan</string>
@@ -119,3 +123,4 @@
     <string name="widget_scan_again">Scan again</string>
     <string name="widget_reclaimable">~%1$s reclaimable</string>
 </resources>
+
