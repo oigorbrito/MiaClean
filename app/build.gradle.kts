@@ -161,6 +161,7 @@ dependencies {
     implementation(libs.glance.material3)
 
     testImplementation(libs.junit)
+    testImplementation(libs.json)
     testImplementation(libs.mockk)
     testImplementation(libs.coroutines.test)
     androidTestImplementation(libs.androidx.test.junit)

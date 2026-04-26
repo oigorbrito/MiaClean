@@ -365,6 +365,7 @@ internal object CategoryChipFormatter {
         MediaCategory.Screenshot -> R.plurals.widget_category_screenshot
         MediaCategory.Selfie -> R.plurals.widget_category_selfie
         MediaCategory.Meme -> R.plurals.widget_category_meme
+        MediaCategory.Document -> R.plurals.widget_category_document
         MediaCategory.Photo -> R.plurals.widget_category_photo
         MediaCategory.Video -> R.plurals.widget_category_video
         MediaCategory.Other -> R.plurals.widget_category_other

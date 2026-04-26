@@ -17,6 +17,10 @@
         <item quantity="one">%d meme</item>
         <item quantity="other">%d memes</item>
     </plurals>
+    <plurals name="widget_category_document">
+        <item quantity="one">%d documento</item>
+        <item quantity="other">%d documentos</item>
+    </plurals>
     <plurals name="widget_category_photo">
         <item quantity="one">%d foto</item>
         <item quantity="other">%d fotos</item>
