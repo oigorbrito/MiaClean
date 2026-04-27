@@ -39,6 +39,8 @@ class SettingsRepository @Inject constructor(
     private val widgetHasScannedKey = booleanPreferencesKey(KEY_WIDGET_HAS_SCANNED)
     private val widgetDuplicateCountKey = intPreferencesKey(KEY_WIDGET_DUPLICATE_COUNT)
     private val widgetReclaimableBytesKey = longPreferencesKey(KEY_WIDGET_RECLAIMABLE_BYTES)
+    private val widgetThumbnailUrisKey = stringPreferencesKey(KEY_WIDGET_THUMBNAIL_URIS)
+    private val widgetCategoryCountsKey = stringPreferencesKey(KEY_WIDGET_CATEGORY_COUNTS)
 
     val deleteStrategy: Flow<DeleteStrategy> = context.deletePrefsDataStore.data.map { prefs ->
         when (prefs[deleteStrategyKey]) {
@@ -109,6 +111,8 @@ class SettingsRepository @Inject constructor(
             hasScanned = prefs[widgetHasScannedKey] ?: false,
             duplicateCount = prefs[widgetDuplicateCountKey] ?: 0,
             reclaimableBytes = prefs[widgetReclaimableBytesKey] ?: 0L,
+            thumbnailUris = WidgetUriListCodec.decode(prefs[widgetThumbnailUrisKey]),
+            categoryCounts = CategoryCountCodec.decode(prefs[widgetCategoryCountsKey]),
         )
     }
 
@@ -166,6 +170,8 @@ class SettingsRepository @Inject constructor(
             prefs[widgetHasScannedKey] = summary.hasScanned
             prefs[widgetDuplicateCountKey] = summary.duplicateCount
             prefs[widgetReclaimableBytesKey] = summary.reclaimableBytes
+            prefs[widgetThumbnailUrisKey] = WidgetUriListCodec.encode(summary.thumbnailUris)
+            prefs[widgetCategoryCountsKey] = CategoryCountCodec.encode(summary.categoryCounts)
         }
     }
 
@@ -179,5 +185,7 @@ class SettingsRepository @Inject constructor(
         const val KEY_WIDGET_HAS_SCANNED = "widget_has_scanned"
         const val KEY_WIDGET_DUPLICATE_COUNT = "widget_duplicate_count"
         const val KEY_WIDGET_RECLAIMABLE_BYTES = "widget_reclaimable_bytes"
+        const val KEY_WIDGET_THUMBNAIL_URIS = "widget_thumbnail_uris"
+        const val KEY_WIDGET_CATEGORY_COUNTS = "widget_category_counts"
     }
 }

@@ -6,6 +6,7 @@ import com.miaclean.app.data.entitlement.Entitlement
 import com.miaclean.app.data.entitlement.EntitlementRepository
 import com.miaclean.app.data.settings.DeleteStrategy
 import com.miaclean.app.data.settings.SettingsRepository
+import com.miaclean.app.widget.WidgetPinRequester
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +18,7 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val entitlementRepository: EntitlementRepository,
+    private val widgetPinRequester: WidgetPinRequester,
 ) : ViewModel() {
 
     val deleteStrategy: StateFlow<DeleteStrategy> =
@@ -54,4 +56,17 @@ class SettingsViewModel @Inject constructor(
     fun setProForDebug(isPro: Boolean) {
         viewModelScope.launch { entitlementRepository.setProForDebug(isPro) }
     }
+
+    /**
+     * Whether the current launcher exposes the pin-widget API. The Settings screen reads this
+     * once on each open (no Flow needed — launcher swaps would only matter on restart anyway,
+     * and the call is cheap enough that re-reading on `remember` is fine).
+     */
+    fun isPinWidgetSupported(): Boolean = widgetPinRequester.isSupported()
+
+    /**
+     * Triggers the system pin-widget dialog. Returns `false` if the launcher silently rejected
+     * the request — the screen surfaces a Toast with the manual-drag hint in that case.
+     */
+    fun requestPinWidget(): Boolean = widgetPinRequester.requestPin()
 }

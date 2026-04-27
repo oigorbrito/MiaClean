@@ -4,4 +4,33 @@
         <item quantity="one">%d duplicada</item>
         <item quantity="other">%d duplicadas</item>
     </plurals>
+
+    <plurals name="widget_category_screenshot">
+        <item quantity="one">%d captura</item>
+        <item quantity="other">%d capturas</item>
+    </plurals>
+    <plurals name="widget_category_selfie">
+        <item quantity="one">%d selfie</item>
+        <item quantity="other">%d selfies</item>
+    </plurals>
+    <plurals name="widget_category_meme">
+        <item quantity="one">%d meme</item>
+        <item quantity="other">%d memes</item>
+    </plurals>
+    <plurals name="widget_category_document">
+        <item quantity="one">%d documento</item>
+        <item quantity="other">%d documentos</item>
+    </plurals>
+    <plurals name="widget_category_photo">
+        <item quantity="one">%d foto</item>
+        <item quantity="other">%d fotos</item>
+    </plurals>
+    <plurals name="widget_category_video">
+        <item quantity="one">%d vídeo</item>
+        <item quantity="other">%d vídeos</item>
+    </plurals>
+    <plurals name="widget_category_other">
+        <item quantity="one">%d outro</item>
+        <item quantity="other">%d outros</item>
+    </plurals>
 </resources>

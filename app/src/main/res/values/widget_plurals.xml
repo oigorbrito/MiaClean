@@ -4,4 +4,38 @@
         <item quantity="one">%d duplicate</item>
         <item quantity="other">%d duplicates</item>
     </plurals>
+
+    <!--
+        Short per-category labels shown in the 2x2 widget's chip row. Plural form so the noun
+        agrees with the count ("1 screenshot" vs "3 screenshots"). Kept deliberately short —
+        the row joins up to three entries with ` · ` and still has to fit a 2x2 footprint.
+    -->
+    <plurals name="widget_category_screenshot">
+        <item quantity="one">%d screenshot</item>
+        <item quantity="other">%d screenshots</item>
+    </plurals>
+    <plurals name="widget_category_selfie">
+        <item quantity="one">%d selfie</item>
+        <item quantity="other">%d selfies</item>
+    </plurals>
+    <plurals name="widget_category_meme">
+        <item quantity="one">%d meme</item>
+        <item quantity="other">%d memes</item>
+    </plurals>
+    <plurals name="widget_category_document">
+        <item quantity="one">%d document</item>
+        <item quantity="other">%d documents</item>
+    </plurals>
+    <plurals name="widget_category_photo">
+        <item quantity="one">%d photo</item>
+        <item quantity="other">%d photos</item>
+    </plurals>
+    <plurals name="widget_category_video">
+        <item quantity="one">%d video</item>
+        <item quantity="other">%d videos</item>
+    </plurals>
+    <plurals name="widget_category_other">
+        <item quantity="one">%d other</item>
+        <item quantity="other">%d others</item>
+    </plurals>
 </resources>

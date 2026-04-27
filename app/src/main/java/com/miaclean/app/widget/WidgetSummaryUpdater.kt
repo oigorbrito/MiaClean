@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.glance.appwidget.updateAll
 import com.miaclean.app.data.settings.SettingsRepository
 import com.miaclean.app.domain.DuplicateGroup
+import com.miaclean.app.domain.MediaCategory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -49,12 +50,16 @@ class WidgetSummaryUpdater @Inject constructor(
             val keeper = group.items.minOfOrNull { it.sizeBytes } ?: 0L
             (group.totalBytes - keeper).coerceAtLeast(0L)
         }
+        val thumbnailUris = pickThumbnailUris(groups, MAX_THUMBNAILS)
+        val categoryCounts = bucketByDominantCategory(groups)
         try {
             settingsRepository.setWidgetSummary(
                 WidgetSummary(
                     hasScanned = true,
                     duplicateCount = count,
                     reclaimableBytes = reclaimable,
+                    thumbnailUris = thumbnailUris,
+                    categoryCounts = categoryCounts,
                 ),
             )
         } catch (e: Exception) {
@@ -70,5 +75,54 @@ class WidgetSummaryUpdater @Inject constructor(
             if (e is kotlinx.coroutines.CancellationException) throw e
             // Launcher-process IPC; not fatal to the scan itself.
         }
+    }
+
+    companion object {
+        /**
+         * Upper bound on how many thumbnail URIs the updater will persist. Matches the 2x2
+         * widget layout (one thumb per slot). Bumping this requires the widget's
+         * `HasDuplicatesBody` to grow equally many image slots; otherwise the extra entries
+         * are silently dropped at render time.
+         */
+        const val MAX_THUMBNAILS = 3
+
+        /**
+         * Picks the first item's URI from the top [limit] groups ordered by the keeper-aware
+         * reclaimable bytes — i.e. the groups the user stands to gain the most space by cleaning.
+         * A group with <2 items yields no URI (can't be a duplicate) and is skipped.
+         *
+         * Stable within-group ordering: we always take `items.first()`. Upstream
+         * [com.miaclean.app.data.ScanRepository] preserves insertion order per group, so the
+         * same group produces the same thumbnail across scans unless its contents change —
+         * avoiding a jittery widget that picks a different preview every refresh.
+         */
+        internal fun pickThumbnailUris(
+            groups: List<DuplicateGroup>,
+            limit: Int,
+        ): List<String> {
+            if (limit <= 0) return emptyList()
+            return groups
+                .filter { it.items.size >= 2 }
+                .sortedByDescending { group ->
+                    val keeper = group.items.minOfOrNull { it.sizeBytes } ?: 0L
+                    (group.totalBytes - keeper).coerceAtLeast(0L)
+                }
+                .take(limit)
+                .mapNotNull { it.items.firstOrNull()?.uri?.takeIf { uri -> uri.isNotBlank() } }
+        }
+
+        /**
+         * Buckets keeper-aware excess (`items.size - 1`) by each group's
+         * [DuplicateGroup.dominantCategory]. Empty / singleton groups contribute zero and are
+         * filtered out so the widget never renders "0 selfies" — same invariant as
+         * [com.miaclean.app.work.ScanWorker.maybeNotifyDelta].
+         */
+        internal fun bucketByDominantCategory(
+            groups: List<DuplicateGroup>,
+        ): Map<MediaCategory, Int> =
+            groups
+                .groupingBy { it.dominantCategory }
+                .fold(0) { acc, group -> acc + (group.items.size - 1).coerceAtLeast(0) }
+                .filterValues { it > 0 }
     }
 }

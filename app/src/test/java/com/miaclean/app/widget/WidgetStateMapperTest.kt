@@ -1,5 +1,6 @@
 package com.miaclean.app.widget
 
+import com.miaclean.app.domain.MediaCategory
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -93,5 +94,40 @@ class WidgetStateMapperTest {
             hasMediaPermission = true,
         )
         assertEquals(WidgetState.HasDuplicates(count = 2, reclaimableBytes = 0L), state)
+    }
+
+    @Test
+    fun `has duplicates propagates thumbnails and category counts`() {
+        // The mapper must surface the enrichment from `WidgetSummary` so the 2x2 layout has
+        // something to render. Zero-count entries are stripped here as a defence-in-depth even
+        // though the updater already filters them — a downgrade or hand-edited prefs could
+        // still inject one.
+        val state = WidgetStateMapper.map(
+            summary = WidgetSummary(
+                hasScanned = true,
+                duplicateCount = 5,
+                reclaimableBytes = 1_000,
+                thumbnailUris = listOf("u1", "u2", "u3"),
+                categoryCounts = mapOf(
+                    MediaCategory.Screenshot to 3,
+                    MediaCategory.Selfie to 0,
+                    MediaCategory.Meme to 2,
+                ),
+            ),
+            onboardingComplete = true,
+            hasMediaPermission = true,
+        )
+        assertEquals(
+            WidgetState.HasDuplicates(
+                count = 5,
+                reclaimableBytes = 1_000,
+                thumbnailUris = listOf("u1", "u2", "u3"),
+                categoryCounts = mapOf(
+                    MediaCategory.Screenshot to 3,
+                    MediaCategory.Meme to 2,
+                ),
+            ),
+            state,
+        )
     }
 }
