@@ -81,7 +81,7 @@ export function readRuntimeConfig(env: NodeJS.ProcessEnv = process.env): Runtime
     allowedPackageName: env.ALLOWED_PACKAGE_NAME ?? "com.miaclean.app",
     proProductIds: parseCsv(env.PRO_PRODUCT_IDS ?? "pro_monthly,pro_yearly,pro_lifetime"),
     subscriptionProductIds: parseCsv(env.SUBSCRIPTION_PRODUCT_IDS ?? "pro_monthly,pro_yearly"),
-    enforceAppCheck: (env.ENFORCE_APP_CHECK ?? "true").toLowerCase() !== "false",
+    enforceAppCheck: (env.ENFORCE_APP_CHECK ?? "false").toLowerCase() === "true",
   };
 }
 

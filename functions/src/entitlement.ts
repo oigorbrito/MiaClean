@@ -96,18 +96,13 @@ function decideSubscription(sub: PlaySubscriptionState, nowMillis: number): OneD
   if (sub.expiryTimeMillis <= nowMillis) {
     return { isPro: false, reason: "all-expired", expiryMillis: sub.expiryTimeMillis };
   }
-  // Treat both "received" (0) and "free trial" (2) as Pro. State 1 ("free trial") in
-  // Play's docs is also Pro-eligible. We exclude `paymentState === 0 && !autoRenewing` plus
-  // expired only — anything else still inside its window is honored.
-  if (sub.paymentState === null || sub.paymentState === undefined) {
-    // Test purchase or promo with no payment recorded. Honor it because Play already minted
-    // the access window — sandbox testers and reward-redemption flows depend on this.
-    return {
-      isPro: true,
-      reason: "subscription-active",
-      expiryMillis: sub.expiryTimeMillis,
-    };
-  }
+  // Inside the access window: grant Pro regardless of paymentState. Play's docs enumerate
+  // paymentState as 0=received, 1=free-trial, 2=pending, 3=on-hold (see types.ts), and the
+  // current policy is "if Play says the window is still open, the user gets Pro". That covers
+  // active paid subs, trials, grace periods, and (intentionally) the brief window after a
+  // cancel where `expiryTimeMillis` is still in the future. A null/undefined paymentState is
+  // also honored — sandbox test purchases and reward-redemption flows surface that shape and
+  // Play has already minted the window for them.
   return {
     isPro: true,
     reason: "subscription-active",

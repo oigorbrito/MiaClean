@@ -32,6 +32,29 @@ import { makeVerifyPurchaseHandler } from "./verifyPurchase";
 initializeApp();
 
 /**
+ * Lazily-constructed singletons reused across warm invocations of both handlers. Constructing
+ * the Play API client requires parsing the service-account JSON and minting a JWT auth client;
+ * the JWT then caches OAuth2 access tokens internally. Hoisting the construction outside the
+ * per-request scope means consecutive warm invocations share the cached token instead of
+ * re-issuing it on every call.
+ *
+ * `createFirestoreCache` is also hoisted for symmetry, though Firestore's Admin SDK already
+ * memoises the underlying `getFirestore()` instance so the win is smaller.
+ */
+let cachedPlayApi: ReturnType<typeof createPlayApiClient> | null = null;
+let cachedCache: ReturnType<typeof createFirestoreCache> | null = null;
+
+function getPlayApi(serviceAccountJson: string) {
+  if (!cachedPlayApi) cachedPlayApi = createPlayApiClient(serviceAccountJson);
+  return cachedPlayApi;
+}
+
+function getCache() {
+  if (!cachedCache) cachedCache = createFirestoreCache();
+  return cachedCache;
+}
+
+/**
  * HTTP handler exposed at `https://<region>-<project>.cloudfunctions.net/verifyPurchase` (or
  * the v2 Cloud Run URL). Mirrored by the Android app at
  * `BuildConfig.BILLING_BACKEND_URL`. Service-account secret is bound at deploy time so the
@@ -55,12 +78,10 @@ export const verifyPurchase = onRequest(
       SUBSCRIPTION_PRODUCT_IDS: subscriptionProductIdsParam.value(),
       ENFORCE_APP_CHECK: enforceAppCheckParam.value(),
     });
-    const playApi = createPlayApiClient(playServiceAccountSecret.value());
-    const cache = createFirestoreCache();
     const handler = makeVerifyPurchaseHandler({
       config,
-      playApi,
-      cache,
+      playApi: getPlayApi(playServiceAccountSecret.value()),
+      cache: getCache(),
       now: () => Date.now(),
     });
     await handler(req, res);
@@ -87,12 +108,10 @@ export const rtdnHandler = onMessagePublished(
       SUBSCRIPTION_PRODUCT_IDS: subscriptionProductIdsParam.value(),
       ENFORCE_APP_CHECK: enforceAppCheckParam.value(),
     });
-    const playApi = createPlayApiClient(playServiceAccountSecret.value());
-    const cache = createFirestoreCache();
     const handler = makeRtdnHandler({
       config,
-      playApi,
-      cache,
+      playApi: getPlayApi(playServiceAccountSecret.value()),
+      cache: getCache(),
       now: () => Date.now(),
     });
     await handler(event);

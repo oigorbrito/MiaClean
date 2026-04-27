@@ -204,6 +204,13 @@ function shouldRefresh(cached: NonNullable<Awaited<ReturnType<EntitlementCacheSt
 
 function rebuildResolvedFromCache(cached: NonNullable<Awaited<ReturnType<EntitlementCacheStore["read"]>>>): ResolvedPurchase {
   if (cached.productType === "subscription") {
+    // The cache only persists the *decided* shape (`isPro`, `expiryMillis`) — not the full
+    // PlaySubscriptionState. We synthesise a minimal state object whose ONLY field
+    // `decideSubscription` reads is `expiryTimeMillis`. The other fields (`paymentState`,
+    // `autoRenewing`, etc.) are placeholder values picked so that any future code path that
+    // happens to peek at them sees a self-consistent "post-decision" snapshot, but they are
+    // NOT authoritative. If `decideSubscription` is ever extended to branch on those fields,
+    // the cache schema must grow to persist the underlying values too.
     return {
       productId: cached.productId,
       productType: "subscription",
