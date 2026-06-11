@@ -70,6 +70,11 @@ data class DuplicateGroup(
 sealed interface ScanProgress {
     data object Idle : ScanProgress
     data class Running(val processed: Int, val total: Int) : ScanProgress
-    data class Done(val duplicates: Int, val groups: Int) : ScanProgress
+    data class Done(
+        val duplicates: Int,
+        val groups: Int,
+        /** Optional friendly error message resource if classification issues occurred but didn't stop the scan. */
+        val classificationErrorResId: Int? = null,
+    ) : ScanProgress
     data class Failed(val reason: String) : ScanProgress
 }

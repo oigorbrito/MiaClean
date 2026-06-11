@@ -35,6 +35,7 @@ import javax.inject.Singleton
 @Singleton
 class SelfieDetector @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val logger: ClassifierEventLogger,
 ) : Closeable {
 
     // Hold the Lazy delegate itself so [close] can check `isInitialized()` and skip triggering
@@ -64,16 +65,45 @@ class SelfieDetector @Inject constructor(
      * any thread — performs blocking I/O, so callers are expected to already be on
      * [kotlinx.coroutines.Dispatchers.IO] (the scan pipeline is).
      */
-    fun isSelfie(uri: Uri, sizeBytes: Long): Boolean {
-        val exif = readExifSignals(uri)
-        if (SelfieEvaluator.isSelfie(exif)) return true
-        if (sizeBytes > MAX_DECODE_BYTES) return false
-        val faceSignals = runFaceDetection(uri) ?: return false
-        val combined = exif.copy(
-            faceCount = faceSignals.faceCount,
-            largestFaceAreaRatio = faceSignals.largestFaceAreaRatio,
-        )
-        return SelfieEvaluator.isSelfie(combined)
+    fun isSelfie(
+        uri: Uri,
+        sizeBytes: Long,
+        mediaId: Long = 0L,
+        onError: (ErrorCategory) -> Unit = {},
+    ): Boolean {
+        val startTime = System.currentTimeMillis()
+        logger.logStart("SelfieDetector", mediaId)
+
+        return try {
+            val exif = readExifSignals(uri)
+            if (SelfieEvaluator.isSelfie(exif)) {
+                logger.logSuccess("SelfieDetector", mediaId, "Selfie (EXIF)", System.currentTimeMillis() - startTime)
+                return true
+            }
+
+            if (sizeBytes > MAX_DECODE_BYTES) {
+                logger.logSuccess("SelfieDetector", mediaId, "Photo (Too large)", System.currentTimeMillis() - startTime)
+                return false
+            }
+
+            val faceSignals = runFaceDetection(uri, mediaId, onError)
+            if (faceSignals == null) {
+                // runFaceDetection already handles internal logging and callback if it returns null
+                return false
+            }
+
+            val combined = exif.copy(
+                faceCount = faceSignals.faceCount,
+                largestFaceAreaRatio = faceSignals.largestFaceAreaRatio,
+            )
+            val result = SelfieEvaluator.isSelfie(combined)
+            logger.logSuccess("SelfieDetector", mediaId, if (result) "Selfie (Face)" else "Photo", System.currentTimeMillis() - startTime)
+            result
+        } catch (e: Exception) {
+            logger.logFailure("SelfieDetector", mediaId, ErrorCategory.UNEXPECTED, e.message, System.currentTimeMillis() - startTime)
+            onError(ErrorCategory.UNEXPECTED)
+            false
+        }
     }
 
     private fun readExifSignals(uri: Uri): SelfieSignals {
@@ -92,14 +122,32 @@ class SelfieDetector @Inject constructor(
                     largestFaceAreaRatio = 0f,
                 )
             } ?: emptySignals()
-        } catch (_: Throwable) {
+        } catch (e: Exception) {
+            // We don't log failure here because it's non-fatal for the flow,
+            // but we might want to know if it's a recurring issue.
             emptySignals()
         }
     }
 
-    private fun runFaceDetection(uri: Uri): FaceSignals? {
-        val detector = faceDetector ?: return null
-        val bitmap = decodeDownscaled(uri) ?: return null
+    private fun runFaceDetection(
+        uri: Uri,
+        mediaId: Long,
+        onError: (ErrorCategory) -> Unit,
+    ): FaceSignals? {
+        val detector = faceDetector
+        if (detector == null) {
+            logger.logFailure("SelfieDetector", mediaId, ErrorCategory.UNEXPECTED, "FaceDetector not available", 0)
+            onError(ErrorCategory.UNEXPECTED)
+            return null
+        }
+        val bitmap = try {
+            decodeDownscaled(uri)
+        } catch (e: Exception) {
+            logger.logFailure("SelfieDetector", mediaId, ErrorCategory.IMAGE_INVALID, "Decoding failed: ${e.message}", 0)
+            onError(ErrorCategory.IMAGE_INVALID)
+            null
+        } ?: return null
+
         return try {
             val mpImage = BitmapImageBuilder(bitmap).build()
             val result: FaceDetectorResult = detector.detect(mpImage)
@@ -114,7 +162,9 @@ class SelfieDetector @Inject constructor(
                 faceCount = detections.size,
                 largestFaceAreaRatio = (largestArea / imageArea).coerceIn(0f, 1f),
             )
-        } catch (_: Throwable) {
+        } catch (e: Exception) {
+            logger.logFailure("SelfieDetector", mediaId, ErrorCategory.UNEXPECTED, "Detection failed: ${e.message}", 0)
+            onError(ErrorCategory.UNEXPECTED)
             null
         } finally {
             bitmap.recycle()
@@ -123,14 +173,22 @@ class SelfieDetector @Inject constructor(
 
     private fun decodeDownscaled(uri: Uri): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        try {
+            context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        } catch (e: Exception) {
+            throw e
+        }
         val longEdge = maxOf(bounds.outWidth, bounds.outHeight)
         if (longEdge <= 0) return null
         var sample = 1
         while (longEdge / sample > FACE_DETECTOR_TARGET_PX) sample *= 2
         val options = BitmapFactory.Options().apply { inSampleSize = sample }
-        return context.contentResolver.openInputStream(uri)?.use {
-            BitmapFactory.decodeStream(it, null, options)
+        return try {
+            context.contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, options)
+            }
+        } catch (e: Exception) {
+            throw e
         }
     }
 

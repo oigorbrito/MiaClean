@@ -1,6 +1,8 @@
 package com.miaclean.app.data
 
 import android.net.Uri
+import com.miaclean.app.data.classify.ClassifierEventLogger
+import com.miaclean.app.data.classify.ErrorCategory
 import com.miaclean.app.data.classify.MediaClassifier
 import com.miaclean.app.data.classify.MemeDetector
 import com.miaclean.app.data.classify.SelfieDetector
@@ -15,6 +17,7 @@ import com.miaclean.app.domain.DuplicateGroup
 import com.miaclean.app.domain.MediaCategory
 import com.miaclean.app.domain.MediaItem
 import com.miaclean.app.domain.ScanProgress
+import com.miaclean.app.ui.scan.ClassifierErrorMapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
@@ -38,6 +41,7 @@ class ScanRepository @Inject constructor(
     private val classifier: MediaClassifier,
     private val selfieDetector: SelfieDetector,
     private val memeDetector: MemeDetector,
+    private val logger: ClassifierEventLogger,
     private val dao: MediaHashDao,
 ) {
 
@@ -53,6 +57,8 @@ class ScanRepository @Inject constructor(
             send(ScanProgress.Done(duplicates = 0, groups = 0))
             return@channelFlow
         }
+
+        var firstClassifierErrorResId: Int? = null
 
         withContext(Dispatchers.IO) {
             items.forEachIndexed { index, item ->
@@ -71,7 +77,20 @@ class ScanRepository @Inject constructor(
                         null
                     }
                     if (md5 != null) {
-                        val category = resolveCategory(item, uri)
+                        val category = try {
+                            resolveCategory(item, uri) { error ->
+                                if (firstClassifierErrorResId == null) {
+                                    firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(error)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            // If resolveCategory throws (shouldn't, but defense in depth),
+                            // record as unexpected error and fall back to Photo.
+                            if (firstClassifierErrorResId == null) {
+                                firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(ErrorCategory.UNEXPECTED)
+                            }
+                            MediaCategory.Photo
+                        }
                         dao.upsert(
                             item.toEntity(
                                 md5 = md5,
@@ -88,7 +107,11 @@ class ScanRepository @Inject constructor(
 
         val groups = buildGroups()
         val duplicates = groups.sumOf { it.items.size }
-        send(ScanProgress.Done(duplicates = duplicates, groups = groups.size))
+        send(ScanProgress.Done(
+            duplicates = duplicates,
+            groups = groups.size,
+            classificationErrorResId = firstClassifierErrorResId
+        ))
     }
 
     suspend fun loadGroups(): List<DuplicateGroup> = withContext(Dispatchers.IO) { buildGroups() }
@@ -106,11 +129,31 @@ class ScanRepository @Inject constructor(
      * and (b) a photo with a face AND caption text is far more often a selfie with a filter
      * watermark than a meme.
      */
-    private suspend fun resolveCategory(item: MediaItem, uri: Uri): MediaCategory {
+    private suspend fun resolveCategory(
+        item: MediaItem,
+        uri: Uri,
+        onError: (ErrorCategory) -> Unit,
+    ): MediaCategory {
+        val startTime = System.currentTimeMillis()
+        logger.logStart("ScanRepositoryPipeline", item.id)
+
         val base = classifier.classify(item)
-        if (base != MediaCategory.Photo) return base
-        if (selfieDetector.isSelfie(uri, item.sizeBytes)) return MediaCategory.Selfie
-        if (memeDetector.isMeme(uri, item.sizeBytes)) return MediaCategory.Meme
+        if (base != MediaCategory.Photo) {
+            logger.logSuccess("ScanRepositoryPipeline", item.id, base.name, System.currentTimeMillis() - startTime)
+            return base
+        }
+
+        if (selfieDetector.isSelfie(uri, item.sizeBytes, item.id, onError)) {
+            logger.logSuccess("ScanRepositoryPipeline", item.id, MediaCategory.Selfie.name, System.currentTimeMillis() - startTime)
+            return MediaCategory.Selfie
+        }
+
+        if (memeDetector.isMeme(uri, item.sizeBytes, item.id, onError)) {
+            logger.logSuccess("ScanRepositoryPipeline", item.id, MediaCategory.Meme.name, System.currentTimeMillis() - startTime)
+            return MediaCategory.Meme
+        }
+
+        logger.logSuccess("ScanRepositoryPipeline", item.id, base.name, System.currentTimeMillis() - startTime)
         return base
     }
 
