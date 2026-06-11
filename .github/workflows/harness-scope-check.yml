@@ -22,19 +22,39 @@ jobs:
         id: extract_scope
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          # Use Python to safely parse the PR body and extract Task-Scope
+          # 1. Try to extract from PR body
           SCOPE=$(python3 -c "
           import os, re
           body = os.environ.get('PR_BODY', '')
-          # Match 'Task-Scope:' case-insensitive, anywhere in the body
           match = re.search(r'Task-Scope:\s*(\S+)', body, re.IGNORECASE)
           if match:
               print(match.group(1).strip())
           ")
 
+          if [ -n "$SCOPE" ]; then
+            echo "Found scope in PR body: $SCOPE"
+          else
+            # 2. Try to extract from commit messages between base and head
+            echo "Task-Scope not found in PR body. Checking commit messages..."
+            COMMITS=$(git log --format=%B "$BASE_SHA..$HEAD_SHA")
+            SCOPE=$(python3 -c "
+            import re, sys
+            commits = sys.stdin.read()
+            match = re.search(r'Task-Scope:\s*(\S+)', commits, re.IGNORECASE)
+            if match:
+                print(match.group(1).strip())
+            " <<< "$COMMITS")
+
+            if [ -n "$SCOPE" ]; then
+              echo "Found scope in commit messages: $SCOPE"
+            fi
+          fi
+
           if [ -z "$SCOPE" ]; then
-            echo "::error::Task-Scope não declarado no corpo da PR. Use 'Task-Scope: <escopo>'."
+            echo "::error::Task-Scope não declarado no corpo da PR ou nas mensagens de commit. Use 'Task-Scope: <escopo>'."
             echo "--- DEBUG: Corpo da PR ---"
             echo "$PR_BODY"
             echo "--------------------------"
