@@ -86,18 +86,3 @@ Ao abrir um Pull Request, certifique-se de que o corpo do PR contém o escopo da
 Task-Scope: somente-documentacao
 ...
 ```
-
-## Rotulagem Automática (PR Labeler)
-
-O repositório possui um workflow que rotula automaticamente os PRs com base no `Task-Scope` declarado na descrição.
-
-| Task-Scope | GitHub Label |
-|------------|--------------|
-| `somente-documentacao` | `scope: docs` |
-| `somente-testes` | `scope: tests` |
-| `refatoracao` | `scope: refactor` |
-| `feature` | `scope: feature` |
-| `bugfix` | `scope: bugfix` |
-| `infra` | `scope: infra` |
-
-**Nota**: Se a label não existir no repositório, o workflow registrará um aviso nos logs da Action, mas não bloqueará o PR.

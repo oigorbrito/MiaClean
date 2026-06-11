@@ -130,4 +130,12 @@
     <string name="widget_scan_now">Escanear</string>
     <string name="widget_scan_again">Escanear novamente</string>
     <string name="widget_reclaimable">~%1$s recuperáveis</string>
+
+    <!-- Classification errors -->
+    <string name="classifier_error_image_invalid">O arquivo de imagem parece estar corrompido ou é inválido.</string>
+    <string name="classifier_error_timeout">A análise demorou muito. Por favor, tente novamente.</string>
+    <string name="classifier_error_network">Uma conexão de rede é necessária para inicializar o classificador.</string>
+    <string name="classifier_error_service_unavailable">O serviço de classificação está temporariamente indisponível.</string>
+    <string name="classifier_error_empty_response">A imagem não pôde ser categorizada.</string>
+    <string name="classifier_error_unexpected">Ocorreu um erro inesperado durante a classificação.</string>
 </resources>

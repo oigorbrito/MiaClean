@@ -27,12 +27,12 @@ jobs:
         run: |
           # 1. Try to extract from PR body
           SCOPE=$(python3 -c "
-import os, re
-body = os.environ.get('PR_BODY', '')
-match = re.search(r'Task-Scope:\s*(\S+)', body, re.IGNORECASE)
-if match:
-    print(match.group(1).strip())
-")
+          import os, re
+          body = os.environ.get('PR_BODY', '')
+          match = re.search(r'Task-Scope:\s*(\S+)', body, re.IGNORECASE)
+          if match:
+              print(match.group(1).strip())
+          ")
 
           if [ -n "$SCOPE" ]; then
             echo "Found scope in PR body: $SCOPE"
@@ -41,12 +41,12 @@ if match:
             echo "Task-Scope not found in PR body. Checking commit messages..."
             COMMITS=$(git log --format=%B "$BASE_SHA..$HEAD_SHA")
             SCOPE=$(python3 -c "
-import re, sys
-commits = sys.stdin.read()
-match = re.search(r'Task-Scope:\s*(\S+)', commits, re.IGNORECASE)
-if match:
-    print(match.group(1).strip())
-" <<< "$COMMITS")
+            import re, sys
+            commits = sys.stdin.read()
+            match = re.search(r'Task-Scope:\s*(\S+)', commits, re.IGNORECASE)
+            if match:
+                print(match.group(1).strip())
+            " <<< "$COMMITS")
 
             if [ -n "$SCOPE" ]; then
               echo "Found scope in commit messages: $SCOPE"
