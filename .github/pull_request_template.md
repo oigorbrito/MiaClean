@@ -18,3 +18,5 @@ Task-Scope: somente-documentacao
 - [ ] O código segue as regras do `RULES.md`.
 - [ ] Foram adicionados testes unitários (se aplicável).
 - [ ] O harness de escopo passou localmente.
+
+Task-Scope: infra
