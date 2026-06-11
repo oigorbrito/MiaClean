@@ -27,14 +27,17 @@ jobs:
           SCOPE=$(python3 -c "
           import os, re
           body = os.environ.get('PR_BODY', '')
-          # Match 'Task-Scope:' at the beginning of a line, case-insensitive
-          match = re.search(r'^Task-Scope:\s*(\S+)', body, re.MULTILINE | re.IGNORECASE)
+          # Match 'Task-Scope:' case-insensitive, anywhere in the body
+          match = re.search(r'Task-Scope:\s*(\S+)', body, re.IGNORECASE)
           if match:
               print(match.group(1).strip())
           ")
 
           if [ -z "$SCOPE" ]; then
             echo "::error::Task-Scope não declarado no corpo da PR. Use 'Task-Scope: <escopo>'."
+            echo "--- DEBUG: Corpo da PR ---"
+            echo "$PR_BODY"
+            echo "--------------------------"
             exit 1
           fi
 
