@@ -27,7 +27,8 @@ jobs:
           SCOPE=$(python3 -c "
           import os, re
           body = os.environ.get('PR_BODY', '')
-          match = re.search(r'^Task-Scope:\s*(\S+)', body, re.MULTILINE)
+          # Match 'Task-Scope:' at the beginning of a line, case-insensitive
+          match = re.search(r'^Task-Scope:\s*(\S+)', body, re.MULTILINE | re.IGNORECASE)
           if match:
               print(match.group(1).strip())
           ")
