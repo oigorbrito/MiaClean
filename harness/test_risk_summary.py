@@ -22,6 +22,7 @@ class TestRiskSummary(unittest.TestCase):
 
     @patch('generate_risk_summary.get_git_changes')
     def test_recommendation_safe(self, mock_changes):
+        # check_scope returns a report where each item has "path" (singular)
         mock_changes.return_value = [{"status": "M", "paths": ["README.md"]}]
         with patch('sys.stdout', new=MagicMock()) as mock_stdout:
             sys.argv = ["prog", "--scope", "somente-documentacao", "--labels", "docs"]
@@ -30,13 +31,12 @@ class TestRiskSummary(unittest.TestCase):
             self.assertIn("SEGURO PARA REVIEW", output)
 
     @patch('generate_risk_summary.get_git_changes')
-    def test_recommendation_attention_docs_scope_with_runtime(self, mock_changes):
+    def test_recommendation_blocked(self, mock_changes):
         mock_changes.return_value = [{"status": "M", "paths": ["app/src/main/java/Main.kt"]}]
         with patch('sys.stdout', new=MagicMock()) as mock_stdout:
             sys.argv = ["prog", "--scope", "somente-documentacao"]
             generate_risk_summary.main()
             output = "".join(call.args[0] for call in mock_stdout.write.call_args_list)
-            # It is blocked because it is out of scope.
             self.assertIn("BLOQUEADO", output)
 
     @patch('generate_risk_summary.get_git_changes')
@@ -50,7 +50,7 @@ class TestRiskSummary(unittest.TestCase):
             self.assertIn("PASSOU", output)
 
     @patch('generate_risk_summary.get_git_changes')
-    def test_recommendation_blocked(self, mock_changes):
+    def test_recommendation_blocked_critical(self, mock_changes):
         mock_changes.return_value = [{"status": "D", "paths": ["firebase.json"]}]
         with patch('sys.stdout', new=MagicMock()) as mock_stdout:
             sys.argv = ["prog", "--scope", "feature"]

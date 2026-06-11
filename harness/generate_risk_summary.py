@@ -61,6 +61,13 @@ def main():
 
     sensitive_touched = []
     deletions_detected = []
+    has_scope_inconsistency = False
+
+    # Check if docs-only but has non-doc changes
+    if args.scope == "somente-documentacao":
+        non_doc_changes = [f for f in report if not any(match_path(f["path"], p) for p in SCOPE_RULES["somente-documentacao"])]
+        if non_doc_changes:
+            has_scope_inconsistency = True
 
     for item in report:
         cat = get_category(item["path"])
@@ -74,18 +81,12 @@ def main():
             deletions_detected.append(item["path"])
 
     # Determine recommendation
-    recommendation = "seguro para review"
     if blocked:
         recommendation = "bloqueado"
+    elif has_scope_inconsistency or sensitive_touched:
+        recommendation = "requer atenção"
     else:
-        # Check if docs-only but has non-doc changes
-        if args.scope == "somente-documentacao":
-            non_doc_changes = [f for f in report if not any(match_path(f["path"], p) for p in SCOPE_RULES["somente-documentacao"])]
-            if non_doc_changes:
-                recommendation = "requer atenção"
-
-        if sensitive_touched:
-            recommendation = "requer atenção"
+        recommendation = "seguro para review"
 
     # Generate Markdown
     print("<!-- mia-clean-risk-summary -->")
