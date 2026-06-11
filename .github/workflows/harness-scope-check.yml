@@ -81,7 +81,6 @@ if match:
           echo "Escopo detectado: $SCOPE"
 
       - name: Run Scope Validator
-        continue-on-error: true
         env:
           TASK_SCOPE: ${{ steps.extract_scope.outputs.scope }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -92,15 +91,10 @@ if match:
           echo "Head SHA: $HEAD_SHA"
           echo "--------------------------------"
 
-          python3 harness/check_scope.py --scope "$TASK_SCOPE" --base "$BASE_SHA" --head "$HEAD_SHA"
-
-          RESULT=$?
-          if [ $RESULT -eq 0 ]; then
-            echo "--------------------------------"
+          if python3 harness/check_scope.py --scope "$TASK_SCOPE" --base "$BASE_SHA" --head "$HEAD_SHA"; then
             echo "Decisão: PASSOU"
             echo "harness_result=PASSOU" >> $GITHUB_ENV
           else
-            echo "--------------------------------"
             echo "Decisão: BLOQUEADO"
             echo "harness_result=BLOQUEADO" >> $GITHUB_ENV
           fi
@@ -154,9 +148,3 @@ if match:
                 body: body
               });
             }
-
-      - name: Final Check
-        if: env.harness_result == 'BLOQUEADO'
-        run: |
-          echo "::error::Harness Scope Check BLOQUEADO. Verifique o resumo de risco na PR."
-          exit 1

@@ -23,12 +23,9 @@ class TestRiskSummary(unittest.TestCase):
     @patch('generate_risk_summary.get_git_changes')
     def test_recommendation_safe(self, mock_changes):
         mock_changes.return_value = [{"status": "M", "paths": ["README.md"]}]
-        # Capturing stdout is tricky, let's just test logic if possible or rely on manual check
-        # But we can at least run it to ensure no crashes
         with patch('sys.stdout', new=MagicMock()) as mock_stdout:
             sys.argv = ["prog", "--scope", "somente-documentacao", "--labels", "docs"]
             generate_risk_summary.main()
-            # Verify it printed "SEGURO PARA REVIEW"
             output = "".join(call.args[0] for call in mock_stdout.write.call_args_list)
             self.assertIn("SEGURO PARA REVIEW", output)
 
@@ -40,7 +37,6 @@ class TestRiskSummary(unittest.TestCase):
             generate_risk_summary.main()
             output = "".join(call.args[0] for call in mock_stdout.write.call_args_list)
             # It is blocked because it is out of scope.
-            # In our current logic, BLOQUEADO is the final recommendation if blocked.
             self.assertIn("BLOQUEADO", output)
 
     @patch('generate_risk_summary.get_git_changes')
@@ -51,7 +47,7 @@ class TestRiskSummary(unittest.TestCase):
             generate_risk_summary.main()
             output = "".join(call.args[0] for call in mock_stdout.write.call_args_list)
             self.assertIn("REQUER ATENÇÃO", output)
-            self.assertIn("PASSOU", output) # infra allows critical area
+            self.assertIn("PASSOU", output)
 
     @patch('generate_risk_summary.get_git_changes')
     def test_recommendation_blocked(self, mock_changes):
