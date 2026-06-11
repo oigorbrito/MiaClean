@@ -21,7 +21,6 @@ Welcome, Agent. This file contains specific instructions for your work in the Mi
   - `data/delete`: For file deletion logic.
   - `widget`: For any glance widget logic.
   - `work`: For background tasks.
-- **No Code Changes in this Task**: This specific task is for documentation and harness setup only. Do not alter Kotlin or Gradle files.
 - **Verify before you act**: Always use `ls` and `read_file` to confirm the current state before proposing changes.
 
 ## Final Response Format

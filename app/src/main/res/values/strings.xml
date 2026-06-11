@@ -130,5 +130,13 @@
     <string name="widget_scan_now">Scan</string>
     <string name="widget_scan_again">Scan again</string>
     <string name="widget_reclaimable">~%1$s reclaimable</string>
+
+    <!-- Classification errors -->
+    <string name="classifier_error_image_invalid">The image file appears to be corrupted or invalid.</string>
+    <string name="classifier_error_timeout">The analysis took too long. Please try again.</string>
+    <string name="classifier_error_network">A network connection is required to initialize the classifier.</string>
+    <string name="classifier_error_service_unavailable">The classification service is temporarily unavailable.</string>
+    <string name="classifier_error_empty_response">The image could not be categorized.</string>
+    <string name="classifier_error_unexpected">An unexpected error occurred during classification.</string>
 </resources>
 
