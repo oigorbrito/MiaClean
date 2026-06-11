@@ -130,5 +130,12 @@
     <string name="widget_scan_now">Scan</string>
     <string name="widget_scan_again">Scan again</string>
     <string name="widget_reclaimable">~%1$s reclaimable</string>
+    <!-- Classification Errors -->
+    <string name="error_classifier_invalid_image">Couldn\'t read some media files. They might be corrupted or moved.</string>
+    <string name="error_classifier_network">Network connection needed to initialize classification models.</string>
+    <string name="error_classifier_timeout">Classification is taking too long. Please try again.</string>
+    <string name="error_classifier_empty">No media found to classify.</string>
+    <string name="error_classifier_service">Classification service is temporarily unavailable.</string>
+    <string name="error_classifier_unexpected">An unexpected error occurred during scan.</string>
 </resources>
 

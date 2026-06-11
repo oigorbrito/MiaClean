@@ -130,4 +130,11 @@
     <string name="widget_scan_now">Escanear</string>
     <string name="widget_scan_again">Escanear novamente</string>
     <string name="widget_reclaimable">~%1$s recuperáveis</string>
+    <!-- Erros de Classificação -->
+    <string name="error_classifier_invalid_image">Não foi possível ler alguns arquivos de mídia. Eles podem estar corrompidos ou terem sido movidos.</string>
+    <string name="error_classifier_network">Conexão de rede necessária para inicializar os modelos de classificação.</string>
+    <string name="error_classifier_timeout">A classificação está demorando muito. Por favor, tente novamente.</string>
+    <string name="error_classifier_empty">Nenhuma mídia encontrada para classificar.</string>
+    <string name="error_classifier_service">O serviço de classificação está temporariamente indisponível.</string>
+    <string name="error_classifier_unexpected">Ocorreu um erro inesperado durante o scan.</string>
 </resources>

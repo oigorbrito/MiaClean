@@ -1,0 +1,35 @@
+package com.miaclean.app.data.classify
+
+import android.content.Context
+import android.util.Log
+import com.miaclean.app.R
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/**
+ * Maps technical [Throwable]s from the classification pipeline into user-friendly localized strings.
+ */
+@Singleton
+class ClassifierErrorMapper @Inject constructor(
+    @ApplicationContext private val context: Context,
+) {
+    fun map(error: Throwable): String {
+        Log.e(TAG, "Classification error detected", error)
+
+        val resId = when (error) {
+            is InvalidImageException -> R.string.error_classifier_invalid_image
+            is ClassificationNetworkException -> R.string.error_classifier_network
+            is ClassificationTimeoutException -> R.string.error_classifier_timeout
+            is EmptyClassificationResponseException -> R.string.error_classifier_empty
+            is ClassificationServiceUnavailableException -> R.string.error_classifier_service
+            else -> R.string.error_classifier_unexpected
+        }
+
+        return context.getString(resId)
+    }
+
+    private companion object {
+        const val TAG = "ClassifierErrorMapper"
+    }
+}

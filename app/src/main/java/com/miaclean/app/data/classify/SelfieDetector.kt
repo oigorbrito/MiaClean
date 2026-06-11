@@ -15,31 +15,11 @@ import java.io.Closeable
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Runs after [MediaClassifier] and promotes `Photo` candidates to `Selfie` when EXIF or a
- * MediaPipe face detection pass agrees. Kept behind a separate class because it touches the
- * [ContentResolver][android.content.ContentResolver] and MediaPipe — the metadata-only
- * [MediaClassifier] stays a pure function we can unit-test trivially.
- *
- * The detector is deliberately conservative:
- *  - EXIF is checked first (no bitmap decode). If EXIF alone is confident (short focal length or
- *    an OEM "front" token) we skip the bitmap path entirely.
- *  - Face detection only runs when EXIF was inconclusive AND the file is small enough to decode
- *    cheaply ([MAX_DECODE_BYTES]). Large files are left as `Photo` rather than burning battery.
- *  - The downscaled bitmap is capped at [FACE_DETECTOR_TARGET_PX] on the long edge. Short-range
- *    BlazeFace is happy with ~128px faces, so 320px gives us plenty of room without pulling full
- *    resolution into memory.
- *  - If the model asset is missing (CI without internet, first run before the download task) the
- *    detector returns `false` gracefully and we fall back to EXIF-only.
- */
 @Singleton
 class SelfieDetector @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : Closeable {
 
-    // Hold the Lazy delegate itself so [close] can check `isInitialized()` and skip triggering
-    // MediaPipe's native initialization just to immediately tear it down. Without this, a caller
-    // that closes the detector before any scan runs would load the TFLite model for nothing.
     private val faceDetectorLazy: Lazy<FaceDetector?> = lazy { tryCreateFaceDetector() }
     private val faceDetector: FaceDetector? get() = faceDetectorLazy.value
 
@@ -59,11 +39,6 @@ class SelfieDetector @Inject constructor(
         }
     }
 
-    /**
-     * Returns true when the image at [uri] should be reclassified as a selfie. Safe to call on
-     * any thread — performs blocking I/O, so callers are expected to already be on
-     * [kotlinx.coroutines.Dispatchers.IO] (the scan pipeline is).
-     */
     fun isSelfie(uri: Uri, sizeBytes: Long): Boolean {
         val exif = readExifSignals(uri)
         if (SelfieEvaluator.isSelfie(exif)) return true
@@ -83,7 +58,7 @@ class SelfieDetector @Inject constructor(
                 SelfieSignals(
                     focalLength35mm = exif.getAttributeInt(
                         ExifInterface.TAG_FOCAL_LENGTH_IN_35MM_FILM,
-                        /* defaultValue = */ 0,
+                        0,
                     ).takeIf { it > 0 },
                     lensModel = exif.getAttribute(ExifInterface.TAG_LENS_MODEL),
                     model = exif.getAttribute(ExifInterface.TAG_MODEL),
@@ -91,15 +66,17 @@ class SelfieDetector @Inject constructor(
                     faceCount = 0,
                     largestFaceAreaRatio = 0f,
                 )
-            } ?: emptySignals()
-        } catch (_: Throwable) {
-            emptySignals()
+            } ?: throw InvalidImageException("Could not open stream for $uri")
+        } catch (e: ClassificationException) {
+            throw e
+        } catch (e: Exception) {
+            throw InvalidImageException("Failed to read EXIF for $uri", e)
         }
     }
 
     private fun runFaceDetection(uri: Uri): FaceSignals? {
-        val detector = faceDetector ?: return null
-        val bitmap = decodeDownscaled(uri) ?: return null
+        val detector = faceDetector ?: throw ClassificationServiceUnavailableException("Face detector model not loaded")
+        val bitmap = decodeDownscaled(uri) ?: throw InvalidImageException("Failed to decode image $uri")
         return try {
             val mpImage = BitmapImageBuilder(bitmap).build()
             val result: FaceDetectorResult = detector.detect(mpImage)
@@ -114,8 +91,8 @@ class SelfieDetector @Inject constructor(
                 faceCount = detections.size,
                 largestFaceAreaRatio = (largestArea / imageArea).coerceIn(0f, 1f),
             )
-        } catch (_: Throwable) {
-            null
+        } catch (e: Exception) {
+            throw UnexpectedClassificationException("Face detection failed for $uri", e)
         } finally {
             bitmap.recycle()
         }

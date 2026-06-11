@@ -15,25 +15,11 @@ import java.io.Closeable
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Thin wrapper around MediaPipe's [ImageEmbedder] task.
- *
- * Ported from the official Google MediaPipe Android example:
- *   https://github.com/google-ai-edge/mediapipe-samples/tree/main/examples/image_embedder/android
- *
- * The model file (`mobilenet_v3_small_100_224_embedder.tflite` by default) must be placed under
- * `app/src/main/assets/` as `image_embedder.tflite`. If it is missing, calls to [embed] return
- * null so the rest of the pipeline can keep working without semantic grouping.
- */
 @Singleton
 class ImageEmbedderWrapper @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : Closeable {
 
-    // Hold the Lazy delegate itself so [close] can check `isInitialized()` and skip triggering
-    // MediaPipe's native initialization just to immediately tear it down. Without this, a caller
-    // that closes the wrapper before any scan runs would load the TFLite model for nothing.
-    // Mirrors the pattern in `SelfieDetector`.
     private val embedderLazy: Lazy<ImageEmbedder?> = lazy { tryCreateEmbedder() }
     private val embedder: ImageEmbedder? get() = embedderLazy.value
 
@@ -54,20 +40,23 @@ class ImageEmbedderWrapper @Inject constructor(
         }
     }
 
-    /** Returns a floating-point embedding for the given image URI, or null when unavailable. */
     fun embed(uri: Uri): FloatArray? {
-        val e = embedder ?: return null
-        val bitmap = decode(uri) ?: return null
+        val e = embedder ?: throw com.miaclean.app.data.classify.ClassificationServiceUnavailableException("Image embedder model not loaded")
+        val bitmap = decode(uri) ?: throw com.miaclean.app.data.classify.InvalidImageException("Failed to decode image $uri")
         return try {
             val mpImage = BitmapImageBuilder(bitmap).build()
             val result: ImageEmbedderResult = e.embed(mpImage)
             result.embeddingResult().embeddings().firstOrNull()?.toFloats()
+                ?: throw com.miaclean.app.data.classify.EmptyClassificationResponseException("Empty embedding result for $uri")
+        } catch (e: com.miaclean.app.data.classify.ClassificationException) {
+            throw e
+        } catch (e: Exception) {
+            throw com.miaclean.app.data.classify.UnexpectedClassificationException("Embedding failed for $uri", e)
         } finally {
             bitmap.recycle()
         }
     }
 
-    /** Cosine similarity between two L2-normalized embeddings; 1.0 means identical. */
     fun cosine(left: FloatArray, right: FloatArray): Float {
         if (left.size != right.size) return 0f
         var dot = 0f
