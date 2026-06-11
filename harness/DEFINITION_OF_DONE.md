@@ -2,6 +2,12 @@
 
 A task is considered "Done" when:
 
+0. **Scope and Security**:
+   - Task type is correctly declared in `TASK_TEMPLATE.md`.
+   - File changes are validated against the declared scope using `harness/check_scope.py`.
+   - No out-of-scope changes to Firebase, Backend, or Core Entitlement logic.
+   - Final Report is generated and attached to the PR/Task.
+
 1. **Code Quality**:
    - Follows `RULES.md`.
    - No new lint warnings/errors (`./gradlew :app:lintDebug`).
