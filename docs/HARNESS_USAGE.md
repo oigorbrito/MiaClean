@@ -86,3 +86,18 @@ Ao abrir um Pull Request, certifique-se de que o corpo do PR contém o escopo da
 Task-Scope: somente-documentacao
 ...
 ```
+
+### Resumo de Risco Automático
+
+O repositório possui uma automação que publica um comentário na PR com um resumo de risco. Este resumo ajuda os revisores a entenderem rapidamente o impacto das mudanças.
+
+O comentário inclui:
+- **Escopo Declarado**: O escopo extraído da PR.
+- **Resultado Harness**: Se as mudanças seguem as regras de escopo (PASSOU/BLOQUEADO).
+- **Categorização de Arquivos**: Agrupamento por tipo (documentação, testes, runtime, infra, etc).
+- **Áreas Sensíveis**: Destaque para mudanças em arquivos críticos.
+- **Deleções**: Destaque para arquivos removidos.
+- **Recomendação**:
+  - `SEGURO PARA REVIEW`: Mudanças dentro do escopo e sem riscos detectados.
+  - `REQUER ATENÇÃO`: Mudanças em áreas sensíveis ou inconsistência entre escopo (ex: `somente-documentacao`) e arquivos alterados.
+  - `BLOQUEADO`: Mudanças que violam as regras do harness.
