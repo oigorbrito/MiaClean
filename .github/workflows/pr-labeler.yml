@@ -18,6 +18,7 @@ jobs:
 
       - name: Extract Task Scope
         id: extract_scope
+        continue-on-error: true
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
@@ -38,6 +39,7 @@ jobs:
 
       - name: Update PR Labels
         if: steps.extract_scope.outputs.scope != ''
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
