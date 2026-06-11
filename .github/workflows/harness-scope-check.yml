@@ -1,0 +1,40 @@
+name: Harness Scope Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+jobs:
+  check-scope:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Extract scope from PR body
+        id: extract_scope
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          SCOPE=$(echo "$PR_BODY" | grep -oP 'Task-Scope:\s*\K\S+' | head -n 1 || true)
+          if [ -z "$SCOPE" ]; then
+            echo "Error: Task-Scope not found in PR body."
+            echo "Please add 'Task-Scope: <scope>' to your PR description."
+            exit 1
+          fi
+          echo "SCOPE=$SCOPE" >> $GITHUB_OUTPUT
+          echo "Detected scope: $SCOPE"
+
+      - name: Run scope check
+        run: |
+          python3 harness/check_scope.py \
+            --scope "${{ steps.extract_scope.outputs.SCOPE }}" \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}"
