@@ -3,6 +3,9 @@
 ## Context
 [Describe the problem or feature request]
 
+## Scope
+- **Declared Scope**: [somente-documentacao, somente-testes, refatoracao, feature, bugfix, infra]
+
 ## Analysis
 - **Affected Packages**: [e.g., `data/scan`, `ui/results`]
 - **Existing Logic**: [What currently exists that relates to this task?]
