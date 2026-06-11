@@ -1,0 +1,87 @@
+name: PR Labeler
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  labeler:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Auto-label PR based on Task-Scope
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body;
+            if (!body) {
+              console.log('No PR body found.');
+              return;
+            }
+
+            const regex = /Task-Scope:\s*(\S+)/i;
+            const match = body.match(regex);
+
+            if (!match) {
+              console.log('Task-Scope not found in PR body.');
+              return;
+            }
+
+            const scope = match[1].toLowerCase();
+            const mapping = {
+              'somente-documentacao': 'scope: docs',
+              'somente-testes': 'scope: tests',
+              'refatoracao': 'scope: refactor',
+              'feature': 'scope: feature',
+              'bugfix': 'scope: bugfix',
+              'infra': 'scope: infra'
+            };
+
+            const labelToAdd = mapping[scope];
+
+            if (!labelToAdd) {
+              console.log(`No mapping found for scope: ${scope}`);
+              return;
+            }
+
+            console.log(`Detected scope: ${scope}. Target label: ${labelToAdd}`);
+
+            // Get existing labels
+            const { data: currentLabels } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number
+            });
+
+            const currentLabelNames = currentLabels.map(l => l.name);
+
+            // Remove existing scope labels if they are different from the target
+            for (const labelName of currentLabelNames) {
+              if (labelName.startsWith('scope: ') && labelName !== labelToAdd) {
+                console.log(`Removing old scope label: ${labelName}`);
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.pull_request.number,
+                  name: labelName
+                }).catch(err => console.log(`Failed to remove label ${labelName}: ${err.message}`));
+              }
+            }
+
+            // Add the new label if not already present
+            if (!currentLabelNames.includes(labelToAdd)) {
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.pull_request.number,
+                  labels: [labelToAdd]
+                });
+                console.log(`Added label: ${labelToAdd}`);
+              } catch (err) {
+                console.log(`Warning: Could not add label "${labelToAdd}". Ensure it exists in the repository. Error: ${err.message}`);
+              }
+            } else {
+              console.log(`Label "${labelToAdd}" is already applied.`);
+            }
