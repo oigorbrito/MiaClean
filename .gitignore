@@ -20,9 +20,6 @@ local.properties
 *.ap_
 *.dex
 *.class
-__pycache__/
-*.py[cod]
-*$py.class
 
 # MediaPipe model assets are downloaded into build/ at build time; keeping this line in case
 # an older checkout had the model at the old path.
