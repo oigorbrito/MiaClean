@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -39,6 +40,9 @@ class EntitlementRepository @Inject constructor(
     private val isProKey = booleanPreferencesKey(KEY_IS_PRO)
     private val deletesCountKey = intPreferencesKey(KEY_DELETES_COUNT)
     private val deletesBucketKey = stringPreferencesKey(KEY_DELETES_BUCKET)
+    private val lastServerIsProKey = booleanPreferencesKey(KEY_LAST_SERVER_IS_PRO)
+    private val lastServerHasDecisionKey = booleanPreferencesKey(KEY_LAST_SERVER_HAS_DECISION)
+    private val lastServerDecisionMsKey = longPreferencesKey(KEY_LAST_SERVER_DECISION_MS)
 
     val entitlement: Flow<Entitlement> = context.entitlementDataStore.data.map { prefs ->
         if (prefs[isProKey] == true) Entitlement.Pro else Entitlement.Free
@@ -112,13 +116,61 @@ class EntitlementRepository @Inject constructor(
      */
     suspend fun setProForDebug(isPro: Boolean) = setProFromPurchase(isPro)
 
+    /**
+     * Reads the most recent server-side entitlement decision, persisted across process death.
+     * Returns `null` when the backend has never been consulted (fresh install, or backend URL
+     * unset). Used by [com.miaclean.app.data.billing.PlayBillingRepository] to keep a 24h
+     * grace window even after the app process is killed by the system — without this, every
+     * cold start with the backend offline would silently revoke Pro for paying users.
+     *
+     * The two flags (`hasDecision` + `isPro`) are stored separately because DataStore can't
+     * encode `Boolean?` natively; we use the auxiliary boolean to disambiguate "decision was
+     * `false`" from "no decision recorded".
+     */
+    suspend fun lastServerDecision(): ServerDecision? {
+        val prefs = context.entitlementDataStore.data.first()
+        val hasDecision = prefs[lastServerHasDecisionKey] ?: false
+        if (!hasDecision) return null
+        return ServerDecision(
+            isPro = prefs[lastServerIsProKey] ?: false,
+            decidedAtMillis = prefs[lastServerDecisionMsKey] ?: 0L,
+        )
+    }
+
+    /**
+     * Persists the server-side entitlement decision plus a wall-clock timestamp. Called from
+     * [com.miaclean.app.data.billing.PlayBillingRepository.handlePurchases] after a successful
+     * `BillingEntitlementApi.resolveIsPro` round-trip. Idempotent — repeat writes with the
+     * same value are tolerated by DataStore.
+     */
+    suspend fun recordServerDecision(isPro: Boolean, decidedAtMillis: Long) {
+        context.entitlementDataStore.edit { prefs ->
+            prefs[lastServerIsProKey] = isPro
+            prefs[lastServerHasDecisionKey] = true
+            prefs[lastServerDecisionMsKey] = decidedAtMillis
+        }
+    }
+
     private fun currentBucket(): String = YearMonth.now().toString() // e.g. "2026-04"
 
     data class State(val entitlement: Entitlement, val deletesThisMonth: Int)
+
+    /**
+     * Snapshot of the last server-side entitlement decision. `decidedAtMillis` is a wall-clock
+     * timestamp (`System.currentTimeMillis`) that the caller compares against `now()` to gate
+     * cache freshness — there is no monotonic guarantee, so a backwards clock change can
+     * temporarily extend the grace window. Acceptable trade-off: an occasional clock-rollback
+     * is rare and the worst case is a paying user keeping Pro a few minutes longer than
+     * intended, not a free user gaining Pro.
+     */
+    data class ServerDecision(val isPro: Boolean, val decidedAtMillis: Long)
 
     private companion object {
         const val KEY_IS_PRO = "is_pro"
         const val KEY_DELETES_COUNT = "deletes_count"
         const val KEY_DELETES_BUCKET = "deletes_bucket"
+        const val KEY_LAST_SERVER_IS_PRO = "last_server_is_pro"
+        const val KEY_LAST_SERVER_HAS_DECISION = "last_server_has_decision"
+        const val KEY_LAST_SERVER_DECISION_MS = "last_server_decision_ms"
     }
 }
