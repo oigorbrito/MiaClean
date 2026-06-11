@@ -2,6 +2,9 @@
 import argparse
 import sys
 import os
+
+# Ensure we can import check_scope from the same directory
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from check_scope import get_git_changes, validate_changes, match_path, SCOPE_RULES, CRITICAL_AREAS
 
 CATEGORIES = {
@@ -98,15 +101,24 @@ def main():
     print(f"| **Recomendação** | **{recommendation.upper()}** |")
     print("\n#### 📂 Arquivos Alterados por Categoria")
 
-    for cat, files in grouped.items():
+    for cat in CATEGORIES.keys():
+        files = grouped[cat]
         if files:
             print(f"- **{cat}**: {len(files)} arquivo(s)")
-            # Optional: list first few files
             for f in files[:5]:
                 status_icon = "✅" if f["ok"] else "❌"
                 print(f"  - {status_icon} `{f['path']}` ({f['status']})")
             if len(files) > 5:
                 print(f"  - ... e mais {len(files) - 5}")
+
+    if grouped["desconhecido"]:
+        files = grouped["desconhecido"]
+        print(f"- **desconhecido**: {len(files)} arquivo(s)")
+        for f in files[:5]:
+            status_icon = "✅" if f["ok"] else "❌"
+            print(f"  - {status_icon} `{f['path']}` ({f['status']})")
+        if len(files) > 5:
+            print(f"  - ... e mais {len(files) - 5}")
 
     if sensitive_touched:
         print("\n#### ⚠️ Áreas Sensíveis Detectadas")
