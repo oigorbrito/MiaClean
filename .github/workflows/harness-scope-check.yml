@@ -1,0 +1,102 @@
+name: Harness Scope Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+jobs:
+  check-scope:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Extract Task Scope
+        id: extract_scope
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # 1. Try to extract from PR body
+          SCOPE=$(python3 -c "
+          import os, re
+          body = os.environ.get('PR_BODY', '')
+          match = re.search(r'Task-Scope:\s*(\S+)', body, re.IGNORECASE)
+          if match:
+              print(match.group(1).strip())
+          ")
+
+          if [ -n "$SCOPE" ]; then
+            echo "Found scope in PR body: $SCOPE"
+          else
+            # 2. Try to extract from commit messages between base and head
+            echo "Task-Scope not found in PR body. Checking commit messages..."
+            COMMITS=$(git log --format=%B "$BASE_SHA..$HEAD_SHA")
+            SCOPE=$(python3 -c "
+            import re, sys
+            commits = sys.stdin.read()
+            match = re.search(r'Task-Scope:\s*(\S+)', commits, re.IGNORECASE)
+            if match:
+                print(match.group(1).strip())
+            " <<< "$COMMITS")
+
+            if [ -n "$SCOPE" ]; then
+              echo "Found scope in commit messages: $SCOPE"
+            fi
+          fi
+
+          if [ -z "$SCOPE" ]; then
+            echo "::error::Task-Scope não declarado no corpo da PR ou nas mensagens de commit. Use 'Task-Scope: <escopo>'."
+            echo "--- DEBUG: Corpo da PR ---"
+            echo "$PR_BODY"
+            echo "--------------------------"
+            exit 1
+          fi
+
+          VALID_SCOPES="somente-documentacao somente-testes refatoracao feature bugfix infra"
+          FOUND=false
+          for s in $VALID_SCOPES; do
+            if [[ "$s" == "$SCOPE" ]]; then
+              FOUND=true
+              break
+            fi
+          done
+
+          if [ "$FOUND" = false ]; then
+            echo "::error::Escopo inválido '$SCOPE'. Escopos válidos: $VALID_SCOPES"
+            exit 1
+          fi
+
+          echo "scope=$SCOPE" >> $GITHUB_OUTPUT
+          echo "Escopo detectado: $SCOPE"
+
+      - name: Run Scope Validator
+        env:
+          TASK_SCOPE: ${{ steps.extract_scope.outputs.scope }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "Escopo detectado: $TASK_SCOPE"
+          echo "Base SHA: $BASE_SHA"
+          echo "Head SHA: $HEAD_SHA"
+          echo "--------------------------------"
+
+          python3 harness/check_scope.py --scope "$TASK_SCOPE" --base "$BASE_SHA" --head "$HEAD_SHA"
+
+          RESULT=$?
+          if [ $RESULT -eq 0 ]; then
+            echo "--------------------------------"
+            echo "Decisão: PASSOU"
+          else
+            echo "--------------------------------"
+            echo "Decisão: BLOQUEADO"
+            exit 1
+          fi
