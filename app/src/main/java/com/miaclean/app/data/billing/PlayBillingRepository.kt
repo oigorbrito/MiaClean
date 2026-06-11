@@ -121,27 +121,14 @@ class PlayBillingRepository @Inject constructor(
     private val reconnectBackoffMillis = AtomicLong(INITIAL_RECONNECT_BACKOFF_MS)
 
     /**
-     * In-memory mirror of the last server entitlement decision. Populated either from a fresh
-     * `BillingEntitlementApi.resolveIsPro` round-trip or, on cold start, hydrated from
-     * [EntitlementRepository.lastServerDecision] so the grace fallback survives process death.
-     *
-     * Marked `@Volatile` because writes happen on [Dispatchers.Default] (`handlePurchases`)
-     * while reads can happen from the same scope after a `BillingClient` callback resumes on
-     * the Play services thread.
+     * Last explicit server entitlement decision. Used as a short grace fallback when the backend
+     * is temporarily unavailable and local verification returns Free due to transient query noise.
      */
     @Volatile
     private var lastServerIsPro: Boolean? = null
 
     @Volatile
     private var lastServerDecisionMs: Long = 0L
-
-    /**
-     * Guard against an O(N) DataStore read on every purchase update by hydrating once. Any
-     * thread can flip this; correctness is preserved by the @Volatile + idempotent hydrate
-     * (re-running it with stale fields would just re-read the same persisted decision).
-     */
-    @Volatile
-    private var serverDecisionHydrated: Boolean = false
 
     /**
      * Kicks off the connection / product query. Safe to call multiple times — no-op if the
@@ -388,11 +375,8 @@ class PlayBillingRepository @Inject constructor(
             localIsPro = localIsPro,
         )
         if (serverIsPro != null) {
-            val now = System.currentTimeMillis()
             lastServerIsPro = serverIsPro
-            lastServerDecisionMs = now
-            serverDecisionHydrated = true
-            entitlementRepository.recordServerDecision(serverIsPro, now)
+            lastServerDecisionMs = System.currentTimeMillis()
             Log.i(TAG, "Entitlement resolved from backend: isPro=$serverIsPro")
             entitlementRepository.setProFromPurchase(serverIsPro)
         } else {
@@ -402,16 +386,8 @@ class PlayBillingRepository @Inject constructor(
         }
     }
 
-    /**
-     * Returns the entitlement to honor when the backend is unavailable. Local-pro is honored
-     * unconditionally (signature was verified upstream, so the purchase is real). Otherwise we
-     * extend the most recent backend-confirmed Pro decision for [SERVER_FALLBACK_GRACE_MS] —
-     * hydrating from DataStore on first call so a paying user who cold-starts the app while
-     * the backend is offline doesn't lose Pro.
-     */
-    private suspend fun resolveWithServerGraceFallback(localIsPro: Boolean): Boolean {
+    private fun resolveWithServerGraceFallback(localIsPro: Boolean): Boolean {
         if (localIsPro) return true
-        hydrateServerDecisionIfNeeded()
         val lastServer = lastServerIsPro
         val ageMs = System.currentTimeMillis() - lastServerDecisionMs
         return if (lastServer == true && ageMs in 0..SERVER_FALLBACK_GRACE_MS) {
@@ -423,21 +399,6 @@ class PlayBillingRepository @Inject constructor(
         } else {
             false
         }
-    }
-
-    private suspend fun hydrateServerDecisionIfNeeded() {
-        if (serverDecisionHydrated) return
-        val persisted = entitlementRepository.lastServerDecision()
-        if (persisted != null) {
-            lastServerIsPro = persisted.isPro
-            lastServerDecisionMs = persisted.decidedAtMillis
-            Log.i(
-                TAG,
-                "Hydrated last server decision from DataStore: isPro=${persisted.isPro} " +
-                    "ageMs=${System.currentTimeMillis() - persisted.decidedAtMillis}",
-            )
-        }
-        serverDecisionHydrated = true
     }
 
     private suspend fun acknowledge(purchase: Purchase) {
