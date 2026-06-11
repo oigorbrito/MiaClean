@@ -20,6 +20,7 @@ A task is considered "Done" when:
 4. **Productivity**:
    - Used the appropriate prompts from `PROMPTS.md`.
    - Followed the structure in `harness/TASK_TEMPLATE.md`.
+   - **Scope Guardrail**: Ran `python3 harness/guardrail.py --scope <SCOPE>` and it PASSED.
 
 5. **Submission**:
    - PR checklist completed.

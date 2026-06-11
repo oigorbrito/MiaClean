@@ -1,6 +1,7 @@
 # PR_CHECKLIST.md
 
 - [ ] Does this change follow the mandatory reading order in `AGENTS.md`?
+- [ ] Has the task scope been validated with `harness/guardrail.py`?
 - [ ] Have I checked for existing modules in `data/` before adding new logic?
 - [ ] Does it respect Android Scoped Storage / SAF rules?
 - [ ] Are all new dependencies added to `gradle/libs.versions.toml`? (If applicable)
