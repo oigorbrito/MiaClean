@@ -24,3 +24,8 @@ local.properties
 # MediaPipe model assets are downloaded into build/ at build time; keeping this line in case
 # an older checkout had the model at the old path.
 /app/src/main/assets/face_detector.tflite
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/

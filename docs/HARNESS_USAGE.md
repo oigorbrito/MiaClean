@@ -79,10 +79,23 @@ Resultado: BLOQUEADO
 
 ## Integração com PR
 
-Ao abrir um Pull Request, certifique-se de que o corpo do PR contém o escopo da tarefa para que o CI funcione corretamente:
+Ao abrir um Pull Request, certifique-se de que o corpo do PR contém o escopo da tarefa para que o CI funcione corretamente. O repositório utiliza um template de PR que já inclui o campo `Task-Scope`.
 
 ```text
 ...
 Task-Scope: somente-documentacao
 ...
 ```
+
+### Automação de Labels
+
+O CI aplicará automaticamente uma label à PR com base no `Task-Scope` declarado:
+
+- `Task-Scope: somente-documentacao` -> `scope: docs`
+- `Task-Scope: somente-testes` -> `scope: tests`
+- `Task-Scope: refatoracao` -> `scope: refactor`
+- `Task-Scope: feature` -> `scope: feature`
+- `Task-Scope: bugfix` -> `scope: bugfix`
+- `Task-Scope: infra` -> `scope: infra`
+
+Labels de escopo antigas são removidas automaticamente quando o `Task-Scope` é atualizado no corpo da PR.
