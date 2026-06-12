@@ -79,6 +79,13 @@ private fun ScanContent(
                     text = stringResource(R.string.scan_done, state.duplicates, state.groups),
                     style = MaterialTheme.typography.bodyLarge,
                 )
+                state.classificationErrorResId?.let { errorResId ->
+                    Text(
+                        text = stringResource(errorResId),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
                 Button(onClick = onOpenResults) { Text(stringResource(R.string.results_title)) }
             }
 
