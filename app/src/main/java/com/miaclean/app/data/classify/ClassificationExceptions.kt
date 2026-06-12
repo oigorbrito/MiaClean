@@ -1,6 +1,5 @@
 package com.miaclean.app.data.classify
 
-import java.io.IOException
 
 /** Base exception for all classification-related failures. */
 sealed class ClassificationException(message: String, cause: Throwable? = null) : Exception(message, cause)

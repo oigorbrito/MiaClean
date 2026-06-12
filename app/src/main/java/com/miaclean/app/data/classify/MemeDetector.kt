@@ -15,6 +15,24 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await
 
+/**
+ * Runs after [MediaClassifier] + [SelfieDetector] and promotes `Photo` candidates to `Meme` when
+ * ML Kit Text Recognition agrees that the image carries caption-style text. Deliberately
+ * conservative because the observable UI surface (category chip) is informational — false
+ * positives are cosmetic, but false *negatives* on actual memes are the whole point of this
+ * detector. Balance is tuned in [MemeEvaluator].
+ *
+ * Guards:
+ *  - Files over [MAX_DECODE_BYTES] are left as `Photo` — decoding a 20 MB HEIF just to guess at a
+ *    category isn't worth it. Memes are ~50-500 KB in practice.
+ *  - Bitmap is downscaled to [RECOGNIZER_TARGET_PX] on the long edge before handing to ML Kit.
+ *    640px preserves caption glyph detail while keeping the recognizer latency under ~150ms on
+ *    a mid-tier device.
+ *  - If Play Services hasn't downloaded the recognizer model yet (unbundled library) the detect
+ *    call fails and we return `false` so the file stays `Photo`. The next scan retries.
+ *  - Recognizer is held behind a [Lazy] so closing the detector without ever scanning avoids
+ *    triggering Play Services module initialization just to tear it down.
+ */
 @Singleton
 class MemeDetector @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -31,15 +49,20 @@ class MemeDetector @Inject constructor(
         }
     }
 
+    /**
+     * Returns true when the image at [uri] should be reclassified as a meme. Suspend because the
+     * ML Kit API is Task-based; callers are expected to already be off the main thread (the scan
+     * pipeline runs on [kotlinx.coroutines.Dispatchers.IO]).
+     */
     suspend fun isMeme(uri: Uri, sizeBytes: Long): Boolean {
         if (sizeBytes > MAX_DECODE_BYTES) return false
-        val bitmap = decodeDownscaled(uri) ?: throw InvalidImageException("Failed to decode image $uri")
+        val bitmap = decodeDownscaled(uri) ?: throw InvalidImageException("Failed to decode image")
         val signals = try {
             runRecognition(bitmap)
         } catch (e: ClassificationException) {
             throw e
         } catch (e: Exception) {
-            throw UnexpectedClassificationException("Meme detection failed for $uri", e)
+            throw UnexpectedClassificationException("Meme detection failed", e)
         } finally {
             bitmap.recycle()
         }
@@ -48,10 +71,11 @@ class MemeDetector @Inject constructor(
 
     private suspend fun runRecognition(bitmap: Bitmap): MemeSignals? {
         val recognizer = recognizer ?: throw ClassificationServiceUnavailableException("Text recognizer model not loaded")
-        val image = InputImage.fromBitmap(bitmap, 0)
+        val image = InputImage.fromBitmap(bitmap, /* rotationDegrees = */ 0)
         val result = try {
             recognizer.process(image).await()
         } catch (e: Exception) {
+            // ML Kit can fail if the unbundled model is not yet downloaded
             throw ClassificationNetworkException("Text recognition model unavailable", e)
         }
 
@@ -110,9 +134,17 @@ class MemeDetector @Inject constructor(
     }
 
     private companion object {
-        const val MAX_DECODE_BYTES = 3L * 1024 * 1024
+        /** Skip files larger than this — memes virtually never exceed a few hundred KB. */
+        const val MAX_DECODE_BYTES = 3L * 1024 * 1024 // 3 MB
+
+        /** Long-edge pixel cap before handing to the recognizer. 640px is enough for caption
+         *  glyph detail without blowing the detection budget. */
         const val RECOGNIZER_TARGET_PX = 640
+
+        /** Top 35% of the image is considered the "top caption band". */
         const val TOP_BAND_END_RATIO = 0.35f
+
+        /** Bottom 35% of the image is considered the "bottom caption band". */
         const val BOTTOM_BAND_START_RATIO = 0.65f
     }
 }

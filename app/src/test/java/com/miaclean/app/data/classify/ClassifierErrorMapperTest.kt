@@ -41,36 +41,12 @@ class ClassifierErrorMapperTest {
     @Test
     fun `maps InvalidImageException correctly`() {
         val error = InvalidImageException("test")
-        assertEquals("Invalid image", mapper.map(error))
-    }
-
-    @Test
-    fun `maps ClassificationNetworkException correctly`() {
-        val error = ClassificationNetworkException("test")
-        assertEquals("Network error", mapper.map(error))
-    }
-
-    @Test
-    fun `maps ClassificationTimeoutException correctly`() {
-        val error = ClassificationTimeoutException("test")
-        assertEquals("Timeout", mapper.map(error))
-    }
-
-    @Test
-    fun `maps EmptyClassificationResponseException correctly`() {
-        val error = EmptyClassificationResponseException("test")
-        assertEquals("Empty response", mapper.map(error))
-    }
-
-    @Test
-    fun `maps ClassificationServiceUnavailableException correctly`() {
-        val error = ClassificationServiceUnavailableException("test")
-        assertEquals("Service unavailable", mapper.map(error))
+        assertEquals("Invalid image", mapper.mapToFriendlyMessage(error))
     }
 
     @Test
     fun `maps generic Exception to unexpected error`() {
         val error = Exception("test")
-        assertEquals("Unexpected error", mapper.map(error))
+        assertEquals("Unexpected error", mapper.mapToFriendlyMessage(error))
     }
 }

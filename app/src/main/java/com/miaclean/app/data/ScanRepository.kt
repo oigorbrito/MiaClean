@@ -6,7 +6,6 @@ import com.miaclean.app.data.classify.ClassifierErrorMapper
 import com.miaclean.app.data.classify.MediaClassifier
 import com.miaclean.app.data.classify.MemeDetector
 import com.miaclean.app.data.classify.SelfieDetector
-import com.miaclean.app.data.classify.UnexpectedClassificationException
 import com.miaclean.app.data.db.MediaHashDao
 import com.miaclean.app.data.db.MediaHashEntity
 import com.miaclean.app.data.hash.Md5Hasher
@@ -42,6 +41,7 @@ class ScanRepository @Inject constructor(
     private val selfieDetector: SelfieDetector,
     private val memeDetector: MemeDetector,
     private val dao: MediaHashDao,
+    private val errorMapper: ClassifierErrorMapper,
 ) {
 
     fun scan(additionalSafTreeUris: List<Uri> = emptyList()): Flow<ScanProgress> = channelFlow {
@@ -69,7 +69,12 @@ class ScanRepository @Inject constructor(
                         null
                     }
                     val embeddingHash = if (item.mimeType.startsWith("image/")) {
-                        imageEmbedder.embed(uri)?.let(::encodeEmbedding)
+                        try {
+                            imageEmbedder.embed(uri)?.let(::encodeEmbedding)
+                        } catch (e: Exception) {
+                            errorMapper.logInternal(e)
+                            null
+                        }
                     } else {
                         null
                     }
@@ -112,9 +117,18 @@ class ScanRepository @Inject constructor(
     private suspend fun resolveCategory(item: MediaItem, uri: Uri): MediaCategory {
         val base = classifier.classify(item)
         if (base != MediaCategory.Photo) return base
-        if (selfieDetector.isSelfie(uri, item.sizeBytes)) return MediaCategory.Selfie
-        if (memeDetector.isMeme(uri, item.sizeBytes)) return MediaCategory.Meme
-        return base
+        return try {
+            if (selfieDetector.isSelfie(uri, item.sizeBytes)) {
+                MediaCategory.Selfie
+            } else if (memeDetector.isMeme(uri, item.sizeBytes)) {
+                MediaCategory.Meme
+            } else {
+                base
+            }
+        } catch (e: Exception) {
+            errorMapper.logInternal(e)
+            base
+        }
     }
 
     private suspend fun buildGroups(): List<DuplicateGroup> {
