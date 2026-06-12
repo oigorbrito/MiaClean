@@ -1,0 +1,72 @@
+name: Harness Scope Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check-scope:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Extract Task Scope
+        id: extract_scope
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          SCOPE=$(python3 -c "
+          import os, re
+          body = os.environ.get('PR_BODY', '')
+          # Only capture if at the start of a line to avoid loose mentions
+          match = re.search(r'^\s*Task-Scope:\s*([a-zA-Z0-9_-]+)', body, re.IGNORECASE | re.MULTILINE)
+          if match:
+              print(match.group(1).strip().lower())
+          ")
+
+          if [ -z "$SCOPE" ]; then
+            echo "::error::Task-Scope não declarado no corpo da PR. Use 'Task-Scope: <escopo>' no início de uma linha."
+            exit 1
+          fi
+
+          VALID_SCOPES="somente-documentacao somente-testes refatoracao feature bugfix infra"
+          FOUND=false
+          for s in $VALID_SCOPES; do
+            if [[ "$s" == "$SCOPE" ]]; then
+              FOUND=true
+              break
+            fi
+          done
+
+          if [ "$FOUND" = false ]; then
+            echo "::error::Escopo inválido '$SCOPE'. Escopos válidos: $VALID_SCOPES"
+            exit 1
+          fi
+
+          echo "scope=$SCOPE" >> $GITHUB_OUTPUT
+          echo "Escopo detectado: $SCOPE"
+
+      - name: Run Scope Validator
+        env:
+          TASK_SCOPE: ${{ steps.extract_scope.outputs.scope }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "Escopo detectado: $TASK_SCOPE"
+          echo "Base SHA: $BASE_SHA"
+          echo "Head SHA: $HEAD_SHA"
+          echo "--------------------------------"
+
+          python3 harness/check_scope.py --scope "$TASK_SCOPE" --base "$BASE_SHA" --head "$HEAD_SHA"

@@ -1,0 +1,83 @@
+name: PR Labeler by Scope
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  labeler:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract Task Scope
+        id: extract_scope
+        continue-on-error: true
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          SCOPE=$(python3 -c "
+          import os, re
+          body = os.environ.get('PR_BODY', '')
+          match = re.search(r'^\s*Task-Scope:\s*([a-zA-Z0-9_-]+)', body, re.IGNORECASE | re.MULTILINE)
+          if match:
+              print(match.group(1).strip().lower())
+          ")
+
+          if [ -n "$SCOPE" ]; then
+            echo "scope=$SCOPE" >> $GITHUB_OUTPUT
+            echo "Escopo detectado: $SCOPE"
+          else
+            echo "::warning::Task-Scope não encontrado no corpo da PR."
+          fi
+
+      - name: Update PR Labels
+        if: steps.extract_scope.outputs.scope != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          TASK_SCOPE: ${{ steps.extract_scope.outputs.scope }}
+        run: |
+          declare -A label_map
+          label_map["somente-documentacao"]="scope: docs"
+          label_map["somente-testes"]="scope: tests"
+          label_map["refatoracao"]="scope: refactor"
+          label_map["feature"]="scope: feature"
+          label_map["bugfix"]="scope: bugfix"
+          label_map["infra"]="scope: infra"
+
+          NEW_LABEL=${label_map[$TASK_SCOPE]}
+
+          if [ -z "$NEW_LABEL" ]; then
+            echo "::warning::Escopo '$TASK_SCOPE' não possui label mapeada."
+            exit 0
+          fi
+
+          echo "Target label: $NEW_LABEL"
+
+          # Remove existing scope labels
+          gh pr view $PR_NUMBER --json labels --jq '.labels[].name' | while read -r label; do
+            if [[ $label == scope:* ]]; then
+              if [[ $label != "$NEW_LABEL" ]]; then
+                echo "Removing old label: $label"
+                gh pr edit $PR_NUMBER --remove-label "$label" || echo "::warning::Failed to remove label $label"
+              fi
+            fi
+          done
+
+          # Check if the new label is already present
+          HAS_LABEL=$(gh pr view $PR_NUMBER --json labels --jq ".labels[] | select(.name == \"$NEW_LABEL\") | .name")
+
+          if [ -z "$HAS_LABEL" ]; then
+            echo "Adding new label: $NEW_LABEL"
+            gh pr edit $PR_NUMBER --add-label "$NEW_LABEL" || echo "::warning::Label '$NEW_LABEL' não pôde ser adicionada."
+          else
+            echo "Label '$NEW_LABEL' já presente."
+          fi
