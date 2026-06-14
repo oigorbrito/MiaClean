@@ -37,6 +37,7 @@
     <string name="results_preview_close">Close</string>
     <string name="results_select_duplicates">Select duplicates</string>
     <string name="results_clear_selection">Clear</string>
+    <string name="results_group_select">Select all in group</string>
     <string name="results_selection_summary">%1$d selected • %2$s</string>
     <string name="results_delete_action">Delete %1$d</string>
     <string name="results_delete_confirm_title_trash">Move selected items to trash?</string>

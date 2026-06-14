@@ -37,6 +37,7 @@
     <string name="results_preview_close">Fechar</string>
     <string name="results_select_duplicates">Selecionar duplicadas</string>
     <string name="results_clear_selection">Limpar</string>
+    <string name="results_group_select">Selecionar tudo no grupo</string>
     <string name="results_selection_summary">%1$d selecionados • %2$s</string>
     <string name="results_delete_action">Apagar %1$d</string>
     <string name="results_delete_confirm_title_trash">Mover os itens selecionados para a lixeira?</string>
