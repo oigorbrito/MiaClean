@@ -25,6 +25,9 @@
     <string name="scan_progress">Analizados %1$d de %2$d</string>
     <string name="scan_idle">Toca Iniciar escaneo para comenzar.</string>
     <string name="scan_done">Escaneo completado: %1$d duplicados en %2$d grupos.</string>
+    <string name="scan_error_permission_revoked">El permiso de medios fue revocado. Por favor, conceda acceso e inténtelo de nuevo.</string>
+    <string name="scan_error_media_unavailable">Algunos archivos multimedia ya no están disponibles en su dispositivo.</string>
+    <string name="scan_error_unexpected">Ocurrió un error inesperado durante el escaneo. Por favor, inténtelo de nuevo.</string>
 
     <!-- Results -->
     <string name="results_title">Resultados</string>

@@ -25,6 +25,9 @@
     <string name="scan_progress">Analisado %1$d de %2$d</string>
     <string name="scan_idle">Toque em Iniciar scan para começar.</string>
     <string name="scan_done">Scan concluído: %1$d duplicadas em %2$d grupos.</string>
+    <string name="scan_error_permission_revoked">A permissão de mídia foi revogada. Por favor, conceda acesso e tente novamente.</string>
+    <string name="scan_error_media_unavailable">Alguns arquivos de mídia não estão mais disponíveis no seu dispositivo.</string>
+    <string name="scan_error_unexpected">Ocorreu um erro inesperado durante o scan. Por favor, tente novamente.</string>
 
     <!-- Results -->
     <string name="results_title">Resultados</string>
