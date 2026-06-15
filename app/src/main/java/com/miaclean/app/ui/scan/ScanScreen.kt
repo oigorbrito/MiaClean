@@ -90,7 +90,10 @@ private fun ScanContent(
             }
 
             is ScanProgress.Failed -> {
-                Text(text = state.reason, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = stringResource(ClassifierErrorMapper.mapScanError(state.errorCode)),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
                 OutlinedButton(onClick = onStart) { Text(stringResource(R.string.scan_start)) }
             }
         }

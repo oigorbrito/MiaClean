@@ -15,6 +15,7 @@ import com.miaclean.app.data.ScanRepository
 import com.miaclean.app.data.settings.SettingsRepository
 import com.miaclean.app.data.settings.UserSettingsRepository
 import com.miaclean.app.domain.DuplicateGroup
+import com.miaclean.app.domain.ScanErrorCode
 import com.miaclean.app.domain.ScanProgress
 import com.miaclean.app.widget.WidgetSummaryUpdater
 import dagger.assisted.Assisted
@@ -49,7 +50,11 @@ class ScanWorker @AssistedInject constructor(
                 maybeNotifyDelta(groups)
                 Result.success()
             }
-            is ScanProgress.Failed -> Result.failure()
+            is ScanProgress.Failed -> when (final.errorCode) {
+                ScanErrorCode.PERMISSION_REVOKED -> Result.failure()
+                ScanErrorCode.MEDIA_UNAVAILABLE -> Result.failure()
+                ScanErrorCode.UNEXPECTED -> Result.retry()
+            }
             else -> Result.success()
         }
     }

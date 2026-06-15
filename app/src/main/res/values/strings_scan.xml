@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scan_error_permission_revoked">Media permissions were revoked. Please grant them and try again.</string>
+    <string name="scan_error_media_unavailable">Some media files are temporarily unavailable. Check your SD card.</string>
+    <string name="scan_error_unexpected">An unexpected error occurred. Please try again later.</string>
+</resources>

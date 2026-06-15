@@ -17,11 +17,13 @@ import com.miaclean.app.domain.DuplicateGroup
 import com.miaclean.app.domain.MediaCategory
 import com.miaclean.app.domain.MediaItem
 import com.miaclean.app.domain.ScanProgress
+import com.miaclean.app.domain.ScanErrorCode
 import com.miaclean.app.ui.scan.ClassifierErrorMapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.withContext
+import java.io.FileNotFoundException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -47,11 +49,20 @@ class ScanRepository @Inject constructor(
 
     fun scan(additionalSafTreeUris: List<Uri> = emptyList()): Flow<ScanProgress> = channelFlow {
         send(ScanProgress.Running(0, 0))
-        val items = withContext(Dispatchers.IO) {
-            val base = mediaStoreScanner.scanAll()
-            val extra = additionalSafTreeUris.flatMap { safScanner.scan(it) }
-            (base + extra).distinctBy { it.uri }
+        val items = try {
+            withContext(Dispatchers.IO) {
+                val base = mediaStoreScanner.scanAll()
+                val extra = additionalSafTreeUris.flatMap { safScanner.scan(it) }
+                (base + extra).distinctBy { it.uri }
+            }
+        } catch (e: SecurityException) {
+            send(ScanProgress.Failed(ScanErrorCode.PERMISSION_REVOKED))
+            return@channelFlow
+        } catch (e: Exception) {
+            send(ScanProgress.Failed(ScanErrorCode.UNEXPECTED))
+            return@channelFlow
         }
+
         val total = items.size
         if (total == 0) {
             send(ScanProgress.Done(duplicates = 0, groups = 0))
@@ -60,49 +71,71 @@ class ScanRepository @Inject constructor(
 
         var firstClassifierErrorResId: Int? = null
 
-        withContext(Dispatchers.IO) {
-            items.forEachIndexed { index, item ->
-                val cached = dao.findByMediaId(item.id)
-                if (cached == null) {
-                    val uri = Uri.parse(item.uri)
-                    val md5 = md5Hasher.hash(uri)
-                    val phash = if (item.mimeType.startsWith("image/")) {
-                        perceptualHasher.hash(uri)
-                    } else {
-                        null
-                    }
-                    val embeddingHash = if (item.mimeType.startsWith("image/")) {
-                        imageEmbedder.embed(uri)?.let(::encodeEmbedding)
-                    } else {
-                        null
-                    }
-                    if (md5 != null) {
-                        val category = try {
-                            resolveCategory(item, uri) { error ->
-                                if (firstClassifierErrorResId == null) {
-                                    firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(error)
-                                }
-                            }
+        try {
+            withContext(Dispatchers.IO) {
+                val cachedIds = dao.findAllMediaIds().toSet()
+                items.forEachIndexed { index, item ->
+                    if (item.id !in cachedIds) {
+                        val uri = Uri.parse(item.uri)
+                        val md5 = try {
+                            md5Hasher.hash(uri)
+                        } catch (e: FileNotFoundException) {
+                            throw e
                         } catch (e: Exception) {
-                            // If resolveCategory throws (shouldn't, but defense in depth),
-                            // record as unexpected error and fall back to Photo.
-                            if (firstClassifierErrorResId == null) {
-                                firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(ErrorCategory.UNEXPECTED)
-                            }
-                            MediaCategory.Photo
+                            null
                         }
-                        dao.upsert(
-                            item.toEntity(
-                                md5 = md5,
-                                pHash = phash,
-                                embeddingHash = embeddingHash,
-                                category = category,
-                            ),
-                        )
+                        val phash = if (item.mimeType.startsWith("image/")) {
+                            try {
+                                perceptualHasher.hash(uri)
+                            } catch (e: Exception) {
+                                null
+                            }
+                        } else {
+                            null
+                        }
+                        val embeddingHash = if (item.mimeType.startsWith("image/")) {
+                            try {
+                                imageEmbedder.embed(uri)?.let(::encodeEmbedding)
+                            } catch (e: Exception) {
+                                null
+                            }
+                        } else {
+                            null
+                        }
+                        if (md5 != null) {
+                            val category = try {
+                                resolveCategory(item, uri) { error ->
+                                    if (firstClassifierErrorResId == null) {
+                                        firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(error)
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                // If resolveCategory throws (shouldn't, but defense in depth),
+                                // record as unexpected error and fall back to Photo.
+                                if (firstClassifierErrorResId == null) {
+                                    firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(ErrorCategory.UNEXPECTED)
+                                }
+                                MediaCategory.Photo
+                            }
+                            dao.upsert(
+                                item.toEntity(
+                                    md5 = md5,
+                                    pHash = phash,
+                                    embeddingHash = embeddingHash,
+                                    category = category,
+                                ),
+                            )
+                        }
                     }
+                    send(ScanProgress.Running(processed = index + 1, total = total))
                 }
-                send(ScanProgress.Running(processed = index + 1, total = total))
             }
+        } catch (e: FileNotFoundException) {
+            send(ScanProgress.Failed(ScanErrorCode.MEDIA_UNAVAILABLE))
+            return@channelFlow
+        } catch (e: Exception) {
+            send(ScanProgress.Failed(ScanErrorCode.UNEXPECTED))
+            return@channelFlow
         }
 
         val groups = buildGroups()
