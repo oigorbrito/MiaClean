@@ -69,10 +69,15 @@ class ScanRepository @Inject constructor(
                 return@channelFlow
             }
 
+            var firstClassifierErrorCode: ScanErrorCode? = null
             var firstClassifierErrorResId: Int? = null
 
             val cachedIds = withContext(Dispatchers.IO) {
-                dao.findAllMediaIds().toSet()
+                try {
+                    dao.findAllMediaIds().toSet()
+                } catch (e: Exception) {
+                    throw wrapFatalException(e)
+                }
             }
 
             withContext(Dispatchers.IO) {
@@ -81,17 +86,20 @@ class ScanRepository @Inject constructor(
                         if (item.id in cachedIds) return@forEachIndexed
                         processItem(item, { error ->
                             if (firstClassifierErrorResId == null) {
+                                firstClassifierErrorCode = ScanErrorCode.UNEXPECTED
                                 firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(error)
                             }
                         }, { unexpectedErrorResId ->
                             if (firstClassifierErrorResId == null) {
+                                firstClassifierErrorCode = ScanErrorCode.UNEXPECTED
                                 firstClassifierErrorResId = unexpectedErrorResId
                             }
                         })
                     } catch (e: Exception) {
-                        if (isFatalException(e)) throw wrapFatalException(e)
+                        if (isFatalException(e)) throw e
                         // Non-fatal: just skip this item and record unexpected error if not already set
                         if (firstClassifierErrorResId == null) {
+                            firstClassifierErrorCode = ScanErrorCode.UNEXPECTED
                             firstClassifierErrorResId = R.string.classifier_error_unexpected
                         }
                     }
@@ -104,6 +112,7 @@ class ScanRepository @Inject constructor(
             send(ScanProgress.Done(
                 duplicates = duplicates,
                 groups = groups.size,
+                classificationErrorCode = firstClassifierErrorCode,
                 classificationErrorResId = firstClassifierErrorResId
             ))
         } catch (e: Exception) {
@@ -118,15 +127,15 @@ class ScanRepository @Inject constructor(
         onUnexpectedError: (Int) -> Unit
     ) {
         val uri = Uri.parse(item.uri)
-        val md5 = md5Hasher.hash(uri) ?: return
+        val md5 = try { md5Hasher.hash(uri) } catch (e: Exception) { if (isFatalException(e)) throw e else null } ?: return
 
-        val phash = if (item.mimeType.startsWith("image/")) {
-            perceptualHasher.hash(uri)
+        val phash = if (item.mimeType.startsWith("image/")) { try {
+            perceptualHasher.hash(uri) } catch (e: Exception) { if (isFatalException(e)) throw e else null }
         } else {
             null
         }
         val embeddingHash = if (item.mimeType.startsWith("image/")) {
-            imageEmbedder.embed(uri)?.let(::encodeEmbedding)
+            try { imageEmbedder.embed(uri)?.let(::encodeEmbedding) } catch (e: Exception) { if (isFatalException(e)) throw e else null }
         } else {
             null
         }
@@ -134,6 +143,7 @@ class ScanRepository @Inject constructor(
         val category = try {
             resolveCategory(item, uri, onClassifierError)
         } catch (e: Exception) {
+            if (isFatalException(e)) throw e
             onUnexpectedError(R.string.classifier_error_unexpected)
             MediaCategory.Photo
         }

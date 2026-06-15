@@ -83,6 +83,7 @@ class ScanRepositoryHardeningTest {
         val emissions = repository().scan().toList()
 
         val done = emissions.filterIsInstance<ScanProgress.Done>().firstOrNull() ?: throw AssertionError("Expected Done, got: $emissions")
+        assertEquals(ScanErrorCode.UNEXPECTED, done.classificationErrorCode)
         assertEquals(R.string.classifier_error_unexpected, done.classificationErrorResId)
     }
 

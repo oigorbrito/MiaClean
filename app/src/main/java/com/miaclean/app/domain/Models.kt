@@ -80,6 +80,8 @@ sealed interface ScanProgress {
     data class Done(
         val duplicates: Int,
         val groups: Int,
+        /** Optional stable error code if classification issues occurred but didn't stop the scan. */
+        val classificationErrorCode: ScanErrorCode? = null,
         /** Optional friendly error message resource if classification issues occurred but didn't stop the scan. */
         val classificationErrorResId: Int? = null,
     ) : ScanProgress
