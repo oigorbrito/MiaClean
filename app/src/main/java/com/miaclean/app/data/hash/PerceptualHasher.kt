@@ -2,8 +2,8 @@ package com.miaclean.app.data.hash
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
+import com.miaclean.app.util.BitmapUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import ru.avicorp.phashcalc.pHashCalc
 import java.io.File
@@ -26,13 +26,14 @@ class PerceptualHasher @Inject constructor(
         val cacheDir = File(context.cacheDir, "phash").apply { mkdirs() }
         val tmp = File.createTempFile("phash_", ".jpg", cacheDir)
         return try {
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                val bitmap = BitmapFactory.decodeStream(input) ?: return null
+            val bitmap = BitmapUtils.decodeDownscaled(context, uri, TARGET_SIZE) ?: return null
+            try {
                 tmp.outputStream().use { out ->
                     bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
                 }
+            } finally {
                 bitmap.recycle()
-            } ?: return null
+            }
             // Library computes the pair hash for (a, b); loading the same path twice yields the
             // hash once via getHashOne().
             if (!phash.loadSourceFile(tmp.absolutePath, tmp.absolutePath)) return null
@@ -59,5 +60,6 @@ class PerceptualHasher @Inject constructor(
     private companion object {
         const val JPEG_QUALITY = 85
         const val DEFAULT_THRESHOLD = 5 // bits
+        const val TARGET_SIZE = 320
     }
 }

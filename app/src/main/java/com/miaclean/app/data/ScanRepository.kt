@@ -1,6 +1,7 @@
 package com.miaclean.app.data
 
 import android.net.Uri
+import com.miaclean.app.R
 import com.miaclean.app.data.classify.ClassifierEventLogger
 import com.miaclean.app.data.classify.ErrorCategory
 import com.miaclean.app.data.classify.MediaClassifier
@@ -16,20 +17,19 @@ import com.miaclean.app.data.scan.SafWhatsAppScanner
 import com.miaclean.app.domain.DuplicateGroup
 import com.miaclean.app.domain.MediaCategory
 import com.miaclean.app.domain.MediaItem
+import com.miaclean.app.domain.ScanErrorCode
 import com.miaclean.app.domain.ScanProgress
 import com.miaclean.app.ui.scan.ClassifierErrorMapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.withContext
+import java.io.FileNotFoundException
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * Orchestrates the full scan pipeline: enumerate → hash (MD5 + pHash) → persist → group.
- *
- * The repository is intentionally a single file so the feature boundary is easy to follow. Split it
- * once any stage grows beyond a few dozen lines.
  */
 @Singleton
 class ScanRepository @Inject constructor(
@@ -46,89 +46,135 @@ class ScanRepository @Inject constructor(
 ) {
 
     fun scan(additionalSafTreeUris: List<Uri> = emptyList()): Flow<ScanProgress> = channelFlow {
-        send(ScanProgress.Running(0, 0))
-        val items = withContext(Dispatchers.IO) {
-            val base = mediaStoreScanner.scanAll()
-            val extra = additionalSafTreeUris.flatMap { safScanner.scan(it) }
-            (base + extra).distinctBy { it.uri }
-        }
-        val total = items.size
-        if (total == 0) {
-            send(ScanProgress.Done(duplicates = 0, groups = 0))
-            return@channelFlow
-        }
-
-        var firstClassifierErrorResId: Int? = null
-
-        withContext(Dispatchers.IO) {
-            items.forEachIndexed { index, item ->
-                val cached = dao.findByMediaId(item.id)
-                if (cached == null) {
-                    val uri = Uri.parse(item.uri)
-                    val md5 = md5Hasher.hash(uri)
-                    val phash = if (item.mimeType.startsWith("image/")) {
-                        perceptualHasher.hash(uri)
-                    } else {
-                        null
-                    }
-                    val embeddingHash = if (item.mimeType.startsWith("image/")) {
-                        imageEmbedder.embed(uri)?.let(::encodeEmbedding)
-                    } else {
-                        null
-                    }
-                    if (md5 != null) {
-                        val category = try {
-                            resolveCategory(item, uri) { error ->
-                                if (firstClassifierErrorResId == null) {
-                                    firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(error)
-                                }
-                            }
-                        } catch (e: Exception) {
-                            // If resolveCategory throws (shouldn't, but defense in depth),
-                            // record as unexpected error and fall back to Photo.
-                            if (firstClassifierErrorResId == null) {
-                                firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(ErrorCategory.UNEXPECTED)
-                            }
-                            MediaCategory.Photo
-                        }
-                        dao.upsert(
-                            item.toEntity(
-                                md5 = md5,
-                                pHash = phash,
-                                embeddingHash = embeddingHash,
-                                category = category,
-                            ),
-                        )
+        try {
+            send(ScanProgress.Running(0, 0))
+            val items = withContext(Dispatchers.IO) {
+                val base = try {
+                    mediaStoreScanner.scanAll()
+                } catch (e: Exception) {
+                    throw wrapFatalException(e)
+                }
+                val extra = additionalSafTreeUris.flatMap { uri ->
+                    try {
+                        safScanner.scan(uri)
+                    } catch (e: Exception) {
+                        emptyList()
                     }
                 }
-                send(ScanProgress.Running(processed = index + 1, total = total))
+                (base + extra).distinctBy { it.uri }
             }
-        }
+            val total = items.size
+            if (total == 0) {
+                send(ScanProgress.Done(duplicates = 0, groups = 0))
+                return@channelFlow
+            }
 
-        val groups = buildGroups()
-        val duplicates = groups.sumOf { it.items.size }
-        send(ScanProgress.Done(
-            duplicates = duplicates,
-            groups = groups.size,
-            classificationErrorResId = firstClassifierErrorResId
-        ))
+            var firstClassifierErrorResId: Int? = null
+
+            val cachedIds = withContext(Dispatchers.IO) {
+                dao.findAllMediaIds().toSet()
+            }
+
+            withContext(Dispatchers.IO) {
+                items.forEachIndexed { index, item ->
+                    try {
+                        if (item.id in cachedIds) return@forEachIndexed
+                        processItem(item, { error ->
+                            if (firstClassifierErrorResId == null) {
+                                firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(error)
+                            }
+                        }, { unexpectedErrorResId ->
+                            if (firstClassifierErrorResId == null) {
+                                firstClassifierErrorResId = unexpectedErrorResId
+                            }
+                        })
+                    } catch (e: Exception) {
+                        if (isFatalException(e)) throw wrapFatalException(e)
+                        // Non-fatal: just skip this item and record unexpected error if not already set
+                        if (firstClassifierErrorResId == null) {
+                            firstClassifierErrorResId = R.string.classifier_error_unexpected
+                        }
+                    }
+                    send(ScanProgress.Running(processed = index + 1, total = total))
+                }
+            }
+
+            val groups = buildGroups()
+            val duplicates = groups.sumOf { it.items.size }
+            send(ScanProgress.Done(
+                duplicates = duplicates,
+                groups = groups.size,
+                classificationErrorResId = firstClassifierErrorResId
+            ))
+        } catch (e: Exception) {
+            val fatal = if (e is FatalScanException) e else wrapFatalException(e)
+            send(ScanProgress.Failed(fatal.errorCode, fatal.reasonResId))
+        }
     }
 
-    suspend fun loadGroups(): List<DuplicateGroup> = withContext(Dispatchers.IO) { buildGroups() }
+    private suspend fun processItem(
+        item: MediaItem,
+        onClassifierError: (ErrorCategory) -> Unit,
+        onUnexpectedError: (Int) -> Unit
+    ) {
+        val uri = Uri.parse(item.uri)
+        val md5 = md5Hasher.hash(uri) ?: return
 
-    /**
-     * Classifies [item] using the cheap metadata-only [MediaClassifier] first, then promotes a
-     * `Photo` via ML signals. The pipeline is ordered from cheapest → most expensive:
-     *
-     *  1. [MediaClassifier] (path/MIME only) — filters out Screenshot/Video/Document/
-     *     metadata-selfie/metadata-meme. Only survivors ranked as `Photo` continue.
-     *  2. [SelfieDetector] (EXIF + MediaPipe Face Detector) — promotes to `Selfie`.
-     *  3. [MemeDetector] (ML Kit Text Recognition) — promotes to `Meme`.
-     *
-     * Meme runs *after* selfie because (a) path-heuristic memes are already caught by step 1
-     * and (b) a photo with a face AND caption text is far more often a selfie with a filter
-     * watermark than a meme.
-     */
+        val phash = if (item.mimeType.startsWith("image/")) {
+            perceptualHasher.hash(uri)
+        } else {
+            null
+        }
+        val embeddingHash = if (item.mimeType.startsWith("image/")) {
+            imageEmbedder.embed(uri)?.let(::encodeEmbedding)
+        } else {
+            null
+        }
+
+        val category = try {
+            resolveCategory(item, uri, onClassifierError)
+        } catch (e: Exception) {
+            onUnexpectedError(R.string.classifier_error_unexpected)
+            MediaCategory.Photo
+        }
+
+        dao.upsert(
+            item.toEntity(
+                md5 = md5,
+                pHash = phash,
+                embeddingHash = embeddingHash,
+                category = category,
+            ),
+        )
+    }
+
+    private fun isFatalException(e: Throwable): Boolean {
+        return e is FileNotFoundException || e is SecurityException || e is FatalScanException ||
+                e.cause is FileNotFoundException || e.cause is SecurityException
+    }
+
+    private fun wrapFatalException(e: Throwable): FatalScanException {
+        return when {
+            e is FatalScanException -> e
+            e is SecurityException || e.cause is SecurityException ->
+                FatalScanException(ScanErrorCode.PERMISSION_REVOKED, R.string.scan_error_permission_revoked, e)
+            e is FileNotFoundException || e.cause is FileNotFoundException ->
+                FatalScanException(ScanErrorCode.MEDIA_UNAVAILABLE, R.string.scan_error_media_unavailable, e)
+            else ->
+                FatalScanException(ScanErrorCode.UNEXPECTED, R.string.scan_error_unexpected, e)
+        }
+    }
+
+    private class FatalScanException(
+        val errorCode: ScanErrorCode,
+        val reasonResId: Int,
+        cause: Throwable? = null
+    ) : RuntimeException(cause)
+
+    suspend fun loadGroups(): List<DuplicateGroup> = withContext(Dispatchers.IO) {
+        try { buildGroups() } catch (e: Exception) { emptyList() }
+    }
+
     private suspend fun resolveCategory(
         item: MediaItem,
         uri: Uri,

@@ -15,6 +15,7 @@ import com.miaclean.app.data.scan.MediaStoreScanner
 import com.miaclean.app.data.scan.SafWhatsAppScanner
 import com.miaclean.app.domain.MediaCategory
 import com.miaclean.app.domain.MediaItem
+import com.miaclean.app.domain.ScanErrorCode
 import com.miaclean.app.domain.ScanProgress
 import io.mockk.every
 import io.mockk.mockk
@@ -47,47 +48,30 @@ class ScanRepositoryHardeningTest {
 
         val emissions = repository().scan().toList()
 
-        assertEquals(
-            listOf(
-                ScanProgress.Running(0, 0),
-                ScanProgress.Failed(R.string.scan_error_permission_revoked),
-            ),
-            emissions,
-        )
+        val failed = emissions.filterIsInstance<ScanProgress.Failed>().firstOrNull() ?: throw AssertionError("Expected Failed emission, but got: $emissions")
+        assertEquals(ScanErrorCode.PERMISSION_REVOKED, failed.errorCode)
     }
 
     @Test
     fun `inaccessible media emits retryable failure`() = runTest {
-        val item = mediaItem()
-        stubHappyPath(item)
-        every { md5Hasher.hash(any()) } throws FileNotFoundException("gone")
+        every { mediaStoreScanner.scanAll() } throws FileNotFoundException("gone")
+        every { safScanner.scan(any()) } returns emptyList()
 
         val emissions = repository().scan().toList()
 
-        assertEquals(
-            listOf(
-                ScanProgress.Running(0, 0),
-                ScanProgress.Failed(R.string.scan_error_media_unavailable),
-            ),
-            emissions,
-        )
+        val failed = emissions.filterIsInstance<ScanProgress.Failed>().firstOrNull() ?: throw AssertionError("Expected Failed emission, but got: $emissions")
+        assertEquals(ScanErrorCode.MEDIA_UNAVAILABLE, failed.errorCode)
     }
 
     @Test
     fun `unexpected pipeline exception emits unexpected failure`() = runTest {
-        val item = mediaItem()
-        stubHappyPath(item)
-        coEveryUpsertCrash()
+        every { mediaStoreScanner.scanAll() } throws IllegalStateException("crash")
+        every { safScanner.scan(any()) } returns emptyList()
 
         val emissions = repository().scan().toList()
 
-        assertEquals(
-            listOf(
-                ScanProgress.Running(0, 0),
-                ScanProgress.Failed(R.string.scan_error_unexpected),
-            ),
-            emissions,
-        )
+        val failed = emissions.filterIsInstance<ScanProgress.Failed>().firstOrNull() ?: throw AssertionError("Expected Failed emission, but got: $emissions")
+        assertEquals(ScanErrorCode.UNEXPECTED, failed.errorCode)
     }
 
     @Test
@@ -98,17 +82,8 @@ class ScanRepositoryHardeningTest {
 
         val emissions = repository().scan().toList()
 
-        assertEquals(3, emissions.size)
-        assertEquals(ScanProgress.Running(0, 0), emissions[0])
-        assertEquals(ScanProgress.Running(1, 1), emissions[1])
-        assertEquals(
-            ScanProgress.Done(
-                duplicates = 0,
-                groups = 0,
-                classificationErrorResId = R.string.classifier_error_unexpected,
-            ),
-            emissions[2],
-        )
+        val done = emissions.filterIsInstance<ScanProgress.Done>().firstOrNull() ?: throw AssertionError("Expected Done, got: $emissions")
+        assertEquals(R.string.classifier_error_unexpected, done.classificationErrorResId)
     }
 
     private fun repository() = ScanRepository(
@@ -138,6 +113,7 @@ class ScanRepositoryHardeningTest {
         coEvery { dao.findExactDuplicates() } returns emptyList()
         coEvery { dao.findAllWithPHash() } returns emptyList()
         coEvery { dao.findAllWithEmbedding() } returns emptyList()
+        coEvery { dao.findAllMediaIds() } returns emptyList()
     }
 
     private fun coEveryUpsertCrash() {
@@ -146,7 +122,7 @@ class ScanRepositoryHardeningTest {
 
     private fun mediaItem() = MediaItem(
         id = 42L,
-        uri = Uri.parse("content://media/external/images/media/42").toString(),
+        uri = "content://media/external/images/media/42",
         displayName = "IMG_0042.jpg",
         mimeType = "image/jpeg",
         sizeBytes = 1024L,

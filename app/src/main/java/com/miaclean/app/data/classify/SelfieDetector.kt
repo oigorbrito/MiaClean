@@ -2,8 +2,8 @@ package com.miaclean.app.data.classify
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
+import com.miaclean.app.util.BitmapUtils
 import androidx.exifinterface.media.ExifInterface
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
@@ -140,13 +140,12 @@ class SelfieDetector @Inject constructor(
             onError(ErrorCategory.UNEXPECTED)
             return null
         }
-        val bitmap = try {
-            decodeDownscaled(uri)
-        } catch (e: Exception) {
-            logger.logFailure("SelfieDetector", mediaId, ErrorCategory.IMAGE_INVALID, "Decoding failed: ${e.message}", 0)
+        val bitmap = BitmapUtils.decodeDownscaled(context, uri, FACE_DETECTOR_TARGET_PX)
+        if (bitmap == null) {
+            logger.logFailure("SelfieDetector", mediaId, ErrorCategory.IMAGE_INVALID, "Decoding failed", 0)
             onError(ErrorCategory.IMAGE_INVALID)
-            null
-        } ?: return null
+            return null
+        }
 
         return try {
             val mpImage = BitmapImageBuilder(bitmap).build()
@@ -171,26 +170,6 @@ class SelfieDetector @Inject constructor(
         }
     }
 
-    private fun decodeDownscaled(uri: Uri): Bitmap? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        try {
-            context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-        } catch (e: Exception) {
-            throw e
-        }
-        val longEdge = maxOf(bounds.outWidth, bounds.outHeight)
-        if (longEdge <= 0) return null
-        var sample = 1
-        while (longEdge / sample > FACE_DETECTOR_TARGET_PX) sample *= 2
-        val options = BitmapFactory.Options().apply { inSampleSize = sample }
-        return try {
-            context.contentResolver.openInputStream(uri)?.use {
-                BitmapFactory.decodeStream(it, null, options)
-            }
-        } catch (e: Exception) {
-            throw e
-        }
-    }
 
     override fun close() {
         if (faceDetectorLazy.isInitialized()) faceDetectorLazy.value?.close()

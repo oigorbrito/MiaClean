@@ -66,6 +66,13 @@ data class DuplicateGroup(
             ?: MediaCategory.Other
 }
 
+/** Error codes for scan failures, providing a stable contract for testing. */
+enum class ScanErrorCode {
+    PERMISSION_REVOKED,
+    MEDIA_UNAVAILABLE,
+    UNEXPECTED
+}
+
 /** Progress emitted by the scan pipeline. */
 sealed interface ScanProgress {
     data object Idle : ScanProgress
@@ -76,5 +83,8 @@ sealed interface ScanProgress {
         /** Optional friendly error message resource if classification issues occurred but didn't stop the scan. */
         val classificationErrorResId: Int? = null,
     ) : ScanProgress
-    data class Failed(val reason: String) : ScanProgress
+    data class Failed(
+        val errorCode: ScanErrorCode,
+        @androidx.annotation.StringRes val reasonResId: Int,
+    ) : ScanProgress
 }

@@ -49,7 +49,7 @@ class ScanWorker @AssistedInject constructor(
                 maybeNotifyDelta(groups)
                 Result.success()
             }
-            is ScanProgress.Failed -> Result.failure()
+            is ScanProgress.Failed -> scanFailureResult(final.errorCode)
             else -> Result.success()
         }
     }
@@ -135,5 +135,13 @@ class ScanWorker @AssistedInject constructor(
 
     private companion object {
         const val SCAN_NOTIFICATION_ID = 1001
+    }
+}
+
+/** Maps a scan failure error code to a WorkManager Result (retry vs permanent failure). */
+fun scanFailureResult(errorCode: com.miaclean.app.domain.ScanErrorCode): androidx.work.ListenableWorker.Result {
+    return when (errorCode) {
+        com.miaclean.app.domain.ScanErrorCode.UNEXPECTED -> androidx.work.ListenableWorker.Result.retry()
+        else -> androidx.work.ListenableWorker.Result.failure()
     }
 }
