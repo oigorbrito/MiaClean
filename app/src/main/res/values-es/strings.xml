@@ -25,6 +25,9 @@
     <string name="scan_progress">Analizados %1$d de %2$d</string>
     <string name="scan_idle">Toca Iniciar escaneo para comenzar.</string>
     <string name="scan_done">Escaneo completado: %1$d duplicados en %2$d grupos.</string>
+    <string name="scan_error_permission_revoked">Los permisos de medios fueron revocados. Por favor, concédelos e inténtalo de nuevo.</string>
+    <string name="scan_error_media_unavailable">Algunos archivos de medios no están disponibles temporalmente. Comprueba tu tarjeta SD/almacenamiento.</string>
+    <string name="scan_error_unexpected">Ocurrió un error inesperado. Por favor, inténtalo de nuevo.</string>
 
     <!-- Results -->
     <string name="results_title">Resultados</string>
@@ -38,6 +41,8 @@
     <string name="results_select_duplicates">Seleccionar duplicados</string>
     <string name="results_clear_selection">Limpiar</string>
     <string name="results_selection_summary">%1$d seleccionados • %2$s</string>
+    <string name="results_item_selected">Seleccionado</string>
+    <string name="results_item_not_selected">No seleccionado</string>
     <string name="results_delete_action">Eliminar %1$d</string>
     <string name="results_delete_confirm_title_trash">¿Mover los elementos seleccionados a la papelera?</string>
     <string name="results_delete_confirm_title_permanent">¿Eliminar permanentemente los elementos seleccionados?</string>

@@ -90,7 +90,9 @@ private fun ScanContent(
             }
 
             is ScanProgress.Failed -> {
-                Text(text = state.reason, style = MaterialTheme.typography.bodyLarge)
+                val message = state.reasonResId?.let { stringResource(it) }
+                    ?: state.errorCode.name
+                Text(text = message, style = MaterialTheme.typography.bodyLarge)
                 OutlinedButton(onClick = onStart) { Text(stringResource(R.string.scan_start)) }
             }
         }

@@ -25,6 +25,9 @@
     <string name="scan_progress">Scanned %1$d of %2$d</string>
     <string name="scan_idle">Tap Start scan to begin.</string>
     <string name="scan_done">Scan done: %1$d duplicates in %2$d groups.</string>
+    <string name="scan_error_permission_revoked">Media permissions were revoked. Please grant them and try again.</string>
+    <string name="scan_error_media_unavailable">Some media files are temporarily unavailable. Check your SD card/storage.</string>
+    <string name="scan_error_unexpected">An unexpected error occurred. Please try again.</string>
 
     <!-- Results -->
     <string name="results_title">Results</string>
@@ -38,6 +41,8 @@
     <string name="results_select_duplicates">Select duplicates</string>
     <string name="results_clear_selection">Clear</string>
     <string name="results_selection_summary">%1$d selected • %2$s</string>
+    <string name="results_item_selected">Selected</string>
+    <string name="results_item_not_selected">Not selected</string>
     <string name="results_delete_action">Delete %1$d</string>
     <string name="results_delete_confirm_title_trash">Move selected items to trash?</string>
     <string name="results_delete_confirm_title_permanent">Permanently delete selected items?</string>

@@ -76,5 +76,20 @@ sealed interface ScanProgress {
         /** Optional friendly error message resource if classification issues occurred but didn't stop the scan. */
         val classificationErrorResId: Int? = null,
     ) : ScanProgress
-    data class Failed(val reason: String) : ScanProgress
+    data class Failed(
+        val errorCode: ScanErrorCode,
+        val reasonResId: Int? = null,
+    ) : ScanProgress
+}
+
+/** Stable error codes for the scan pipeline. */
+enum class ScanErrorCode {
+    /** Media permissions were revoked during the scan. */
+    PERMISSION_REVOKED,
+
+    /** Files became unreachable (SD card removed, MediaStore sync error). */
+    MEDIA_UNAVAILABLE,
+
+    /** Pipeline crashed (database full, OOM, logic error). */
+    UNEXPECTED,
 }

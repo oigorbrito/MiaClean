@@ -15,8 +15,10 @@ import com.miaclean.app.data.scan.MediaStoreScanner
 import com.miaclean.app.data.scan.SafWhatsAppScanner
 import com.miaclean.app.domain.MediaCategory
 import com.miaclean.app.domain.MediaItem
+import com.miaclean.app.domain.ScanErrorCode
 import com.miaclean.app.domain.ScanProgress
 import io.mockk.every
+import io.mockk.mockkStatic
 import io.mockk.mockk
 import io.mockk.coEvery
 import java.io.FileNotFoundException
@@ -42,56 +44,62 @@ class ScanRepositoryHardeningTest {
 
     @Test
     fun `permission revoked during scan emits retryable failure`() = runTest {
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } returns mockk(relaxed = true)
+
         every { mediaStoreScanner.scanAll() } throws SecurityException("permission revoked")
         every { safScanner.scan(any()) } returns emptyList()
 
         val emissions = repository().scan().toList()
 
-        assertEquals(
-            listOf(
-                ScanProgress.Running(0, 0),
-                ScanProgress.Failed(R.string.scan_error_permission_revoked),
-            ),
-            emissions,
-        )
+        assertEquals(2, emissions.size)
+        assertEquals(ScanProgress.Running(0, 0), emissions[0])
+        val failed = emissions[1] as ScanProgress.Failed
+        assertEquals(ScanErrorCode.PERMISSION_REVOKED, failed.errorCode)
+        assertEquals(R.string.scan_error_permission_revoked, failed.reasonResId)
     }
 
     @Test
     fun `inaccessible media emits retryable failure`() = runTest {
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } returns mockk(relaxed = true)
+
         val item = mediaItem()
         stubHappyPath(item)
         every { md5Hasher.hash(any()) } throws FileNotFoundException("gone")
 
         val emissions = repository().scan().toList()
 
-        assertEquals(
-            listOf(
-                ScanProgress.Running(0, 0),
-                ScanProgress.Failed(R.string.scan_error_media_unavailable),
-            ),
-            emissions,
-        )
+        assertEquals(2, emissions.size)
+        assertEquals(ScanProgress.Running(0, 0), emissions[0])
+        val failed = emissions[1] as ScanProgress.Failed
+        assertEquals(ScanErrorCode.MEDIA_UNAVAILABLE, failed.errorCode)
+        assertEquals(R.string.scan_error_media_unavailable, failed.reasonResId)
     }
 
     @Test
     fun `unexpected pipeline exception emits unexpected failure`() = runTest {
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } returns mockk(relaxed = true)
+
         val item = mediaItem()
         stubHappyPath(item)
         coEveryUpsertCrash()
 
         val emissions = repository().scan().toList()
 
-        assertEquals(
-            listOf(
-                ScanProgress.Running(0, 0),
-                ScanProgress.Failed(R.string.scan_error_unexpected),
-            ),
-            emissions,
-        )
+        assertEquals(2, emissions.size)
+        assertEquals(ScanProgress.Running(0, 0), emissions[0])
+        val failed = emissions[1] as ScanProgress.Failed
+        assertEquals(ScanErrorCode.UNEXPECTED, failed.errorCode)
+        assertEquals(R.string.scan_error_unexpected, failed.reasonResId)
     }
 
     @Test
     fun `classification failure is downgraded to warning and scan completes`() = runTest {
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } returns mockk(relaxed = true)
+
         val item = mediaItem()
         stubHappyPath(item)
         every { classifier.classify(item) } throws IllegalStateException("classifier blew up")

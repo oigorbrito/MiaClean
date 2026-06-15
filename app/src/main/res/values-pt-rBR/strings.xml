@@ -25,6 +25,9 @@
     <string name="scan_progress">Analisado %1$d de %2$d</string>
     <string name="scan_idle">Toque em Iniciar scan para começar.</string>
     <string name="scan_done">Scan concluído: %1$d duplicadas em %2$d grupos.</string>
+    <string name="scan_error_permission_revoked">Permissões de mídia foram revogadas. Por favor, conceda-as e tente novamente.</string>
+    <string name="scan_error_media_unavailable">Alguns arquivos de mídia estão temporariamente indisponíveis. Verifique seu cartão SD/armazenamento.</string>
+    <string name="scan_error_unexpected">Ocorreu um erro inesperado. Por favor, tente novamente.</string>
 
     <!-- Results -->
     <string name="results_title">Resultados</string>
@@ -38,6 +41,8 @@
     <string name="results_select_duplicates">Selecionar duplicadas</string>
     <string name="results_clear_selection">Limpar</string>
     <string name="results_selection_summary">%1$d selecionados • %2$s</string>
+    <string name="results_item_selected">Selecionado</string>
+    <string name="results_item_not_selected">Não selecionado</string>
     <string name="results_delete_action">Apagar %1$d</string>
     <string name="results_delete_confirm_title_trash">Mover os itens selecionados para a lixeira?</string>
     <string name="results_delete_confirm_title_permanent">Apagar permanentemente os itens selecionados?</string>
