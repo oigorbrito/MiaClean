@@ -5,7 +5,7 @@
 - **Semantic Cosine Similarity Threshold**: 0.92
 
 ## Metrics Summary
-- **Precision**: 85.71%
+- **Precision**: 87.50%
 - **Recall**: 100.00%
 - **False Positives (Pairs)**: 1
 - **False Negatives (Pairs)**: 0
@@ -20,14 +20,14 @@
 - Group 3: screenshot_4a.jpg, screenshot_4b.jpg
 - Group 4: selfie_5a.jpg, selfie_5b.jpg
 - Group 5: meme_6a.jpg, meme_6b.jpg
-- Group 6: visually_similar_but_distinct_7a.jpg, visually_similar_but_distinct_7b.jpg
+- Group 6: distinct_8a.jpg, distinct_8b.jpg
 
 ### Strategy: SEMANTIC_EMBED
-No groups detected.
+- Group 1: semantic_7a.jpg, semantic_7b.jpg
 
 ## Error Analysis
 ### False Positives (Incorrectly Grouped)
-- visually_similar_but_distinct_7a.jpg <-> visually_similar_but_distinct_7b.jpg
+- distinct_8a.jpg <-> distinct_8b.jpg
 
 ## Suggestions
 - If Precision is low (High FP): Increase SEMANTIC_THRESHOLD (e.g. 0.95) or decrease PHASH_THRESHOLD (e.g. 3).

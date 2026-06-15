@@ -49,7 +49,7 @@
     "name": "compressed_3b.jpg",
     "category": "Photo",
     "md5": "md5_3b",
-    "phash": "1122334455667789",
+    "phash": "112233445566778F",
     "embedding": [0.89, 0.89, 0.11, 0.11, 0.51],
     "ground_truth_group": 103
   },
@@ -67,7 +67,7 @@
     "name": "screenshot_4b.jpg",
     "category": "Screenshot",
     "md5": "md5_4b",
-    "phash": "FFFFFFFF00000001",
+    "phash": "FFFFFFFF0000000F",
     "embedding": [0.99, 0.01, 0.0, 0.0, 0.0],
     "ground_truth_group": 104
   },
@@ -85,7 +85,7 @@
     "name": "selfie_5b.jpg",
     "category": "Selfie",
     "md5": "md5_5b",
-    "phash": "00000000FFFFFFFE",
+    "phash": "00000000FFFFFFF0",
     "embedding": [0.0, 0.99, 0.01, 0.0, 0.0],
     "ground_truth_group": 105
   },
@@ -103,35 +103,44 @@
     "name": "meme_6b.jpg",
     "category": "Meme",
     "md5": "md5_6b",
-    "phash": "1234567812345679",
+    "phash": "123456781234567F",
     "embedding": [0.0, 0.0, 0.99, 0.01, 0.0],
     "ground_truth_group": 106
   },
   {
     "id": 13,
-    "name": "visually_similar_but_distinct_7a.jpg",
+    "name": "semantic_7a.jpg",
     "category": "Photo",
     "md5": "md5_7a",
     "phash": "AAAAAAAAAAAAAAAA",
-    "embedding": [0.7, 0.7, 0.0, 0.0, 0.0],
-    "ground_truth_group": null
+    "embedding": [0.707, 0.707, 0.0, 0.0, 0.0],
+    "ground_truth_group": 107
   },
   {
     "id": 14,
-    "name": "visually_similar_but_distinct_7b.jpg",
+    "name": "semantic_7b.jpg",
     "category": "Photo",
     "md5": "md5_7b",
-    "phash": "AAAAAAAAAAAAAA55",
+    "phash": "5555555555555555",
+    "embedding": [0.7, 0.7, 0.01, 0.0, 0.0],
+    "ground_truth_group": 107
+  },
+  {
+    "id": 15,
+    "name": "distinct_8a.jpg",
+    "category": "Photo",
+    "md5": "md5_8a",
+    "phash": "BBBBBBBBBBBBBBBB",
     "embedding": [0.1, 0.9, 0.0, 0.0, 0.0],
     "ground_truth_group": null
   },
   {
-    "id": 15,
-    "name": "unrelated_8.jpg",
+    "id": 16,
+    "name": "distinct_8b.jpg",
     "category": "Photo",
-    "md5": "md5_8",
-    "phash": "5555555555555555",
-    "embedding": [0.0, 0.0, 0.0, 0.0, 1.0],
+    "md5": "md5_8b",
+    "phash": "BBBBBBBBBBBBBBB0",
+    "embedding": [0.9, 0.1, 0.0, 0.0, 0.0],
     "ground_truth_group": null
   }
 ]

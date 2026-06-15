@@ -5,10 +5,15 @@ import os
 PHASH_THRESHOLD = 5
 SEMANTIC_THRESHOLD = 0.92
 
+def hex_to_bits(hex_str):
+    return bin(int(hex_str, 16))[2:].zfill(len(hex_str) * 4)
+
 def hamming_distance(h1, h2):
     if len(h1) != len(h2):
         return 999
-    return sum(c1 != c2 for c1, c2 in zip(h1, h2))
+    b1 = hex_to_bits(h1)
+    b2 = hex_to_bits(h2)
+    return sum(c1 != c2 for c1, c2 in zip(b1, b2))
 
 def cosine_similarity(v1, v2):
     if not v1 or not v2 or len(v1) != len(v2):
@@ -134,7 +139,8 @@ def evaluate(dataset, detected_groups):
         "tn": len(tn),
         "precision": precision,
         "recall": recall,
-        "incorrect_pairs": [list(p) for p in fp]
+        "incorrect_pairs": [list(p) for p in fp],
+        "missed_pairs": [list(p) for p in fn]
     }
 
 def main():
@@ -180,8 +186,8 @@ def main():
 
     if results['fn'] > 0:
         report += "\n### False Negatives (Failed to Group)\n"
-        # We don't explicitly list FN pairs here to keep it short, but could.
-        report += f"Total FN pairs: {results['fn']}\n"
+        for p in results['missed_pairs']:
+            report += f"- {id_to_name[p[0]]} <-> {id_to_name[p[1]]}\n"
 
     report += """
 ## Suggestions
