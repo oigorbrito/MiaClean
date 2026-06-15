@@ -33,6 +33,8 @@ SCOPE_RULES = {
     "somente-testes": [
         "app/src/test/**",
         "app/src/androidTest/**",
+        "harness/**",
+        "docs/SCAN_QUALITY_REPORT.md",
     ],
     "refatoracao": ["*"],
     "feature": ["*"],
