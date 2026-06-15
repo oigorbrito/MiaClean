@@ -78,19 +78,26 @@ export function makeRtdnHandler(deps: RtdnDeps) {
     }
 
     if (payload.testNotification) {
-      console.log("RTDN test notification received", { version: payload.testNotification.version });
+      console.log("RTDN test notification received", {
+        version: payload.testNotification.version,
+      });
       return;
     }
 
     if (payload.packageName !== deps.config.allowedPackageName) {
       // Cross-app notification routed to wrong topic. Drop silently — surfacing as an error
       // would create noise in monitoring without an actionable signal.
-      console.warn("RTDN packageName mismatch", { received: payload.packageName });
+      console.warn("RTDN packageName mismatch", {
+        received: payload.packageName,
+      });
       return;
     }
 
     if (payload.subscriptionNotification) {
-      await handleSubscriptionNotification(deps, payload.subscriptionNotification);
+      await handleSubscriptionNotification(
+        deps,
+        payload.subscriptionNotification,
+      );
       return;
     }
     if (payload.oneTimeProductNotification) {
@@ -101,7 +108,9 @@ export function makeRtdnHandler(deps: RtdnDeps) {
       await handleVoidedPurchase(deps, payload.voidedPurchaseNotification);
       return;
     }
-    console.warn("RTDN payload had no recognised notification kind", { payload });
+    console.warn("RTDN payload had no recognised notification kind", {
+      payload,
+    });
   };
 }
 
@@ -125,7 +134,10 @@ async function handleSubscriptionNotification(
     lastSource: "rtdn",
   };
   await deps.cache.write(
-    { packageName: deps.config.allowedPackageName, purchaseToken: notification.purchaseToken },
+    {
+      packageName: deps.config.allowedPackageName,
+      purchaseToken: notification.purchaseToken,
+    },
     doc,
   );
 }
@@ -150,7 +162,10 @@ async function handleProductNotification(
     lastSource: "rtdn",
   };
   await deps.cache.write(
-    { packageName: deps.config.allowedPackageName, purchaseToken: notification.purchaseToken },
+    {
+      packageName: deps.config.allowedPackageName,
+      purchaseToken: notification.purchaseToken,
+    },
     doc,
   );
 }
@@ -179,7 +194,10 @@ async function handleVoidedPurchase(
     lastSource: "rtdn",
   };
   await deps.cache.write(
-    { packageName: deps.config.allowedPackageName, purchaseToken: notification.purchaseToken },
+    {
+      packageName: deps.config.allowedPackageName,
+      purchaseToken: notification.purchaseToken,
+    },
     doc,
   );
 }

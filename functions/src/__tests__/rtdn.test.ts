@@ -46,7 +46,10 @@ describe("rtdn handler", () => {
       }),
     );
     expect(
-      await cache.read({ packageName: "com.miaclean.app", purchaseToken: "any" }),
+      await cache.read({
+        packageName: "com.miaclean.app",
+        purchaseToken: "any",
+      }),
     ).toBeNull();
   });
 
@@ -178,7 +181,10 @@ describe("rtdn handler", () => {
       }),
     );
     expect(
-      await cache.read({ packageName: "com.miaclean.app", purchaseToken: "token-unknown" }),
+      await cache.read({
+        packageName: "com.miaclean.app",
+        purchaseToken: "token-unknown",
+      }),
     ).toBeNull();
   });
 });

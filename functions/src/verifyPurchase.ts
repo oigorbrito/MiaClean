@@ -56,6 +56,15 @@ export interface VerifyPurchaseDeps {
 const CACHE_TTL_MILLIS = 24 * 60 * 60 * 1000;
 
 /**
+ * Input validation limits to prevent DoS and malicious payloads.
+ * Matches the security limits in the backend design.
+ */
+const MAX_PACKAGE_NAME_LENGTH = 128;
+const MAX_PURCHASES_PER_REQUEST = 50;
+const MAX_PURCHASE_TOKEN_LENGTH = 2048;
+const MAX_PRODUCT_ID_LENGTH = 128;
+
+/**
  * Top-level entry point bound by `index.ts`. Returns a handler shaped like a Firebase v2 HTTPS
  * onRequest function so it can be wrapped in `onRequest({ ...opts }, handler)`.
  */
@@ -109,7 +118,9 @@ async function resolveOnePurchase(
   // The client lists the product IDs it thinks the purchase covers. Pick the first one that
   // matches our configured Pro list — Play purchases for subscription bundles have one product
   // per Purchase, so this is unambiguous in practice.
-  const productId = entry.products.find((p) => deps.config.proProductIds.has(p));
+  const productId = entry.products.find((p) =>
+    deps.config.proProductIds.has(p),
+  );
   if (!productId) {
     return {
       productId: entry.products[0] ?? "<unknown>",
@@ -118,14 +129,17 @@ async function resolveOnePurchase(
     };
   }
 
-  const productType: ResolvedPurchase["productType"] = deps.config.subscriptionProductIds.has(
-    productId,
-  )
-    ? "subscription"
-    : "inapp";
+  const productType: ResolvedPurchase["productType"] =
+    deps.config.subscriptionProductIds.has(productId)
+      ? "subscription"
+      : "inapp";
 
   // Cache hit: serve the persisted decision unless it's stale.
-  const cached = await safeReadCache(deps.cache, packageName, entry.purchaseToken);
+  const cached = await safeReadCache(
+    deps.cache,
+    packageName,
+    entry.purchaseToken,
+  );
   if (cached && !shouldRefresh(cached, deps.now())) {
     return rebuildResolvedFromCache(cached);
   }
@@ -164,7 +178,10 @@ async function resolveOnePurchase(
       }
     }
   } catch (err) {
-    console.warn("Play API lookup failed; falling back to cache (if any)", { err, productId });
+    console.warn("Play API lookup failed; falling back to cache (if any)", {
+      err,
+      productId,
+    });
     if (cached) return rebuildResolvedFromCache(cached);
     return { productId, productType, state: null };
   }
@@ -186,13 +203,21 @@ async function resolveOnePurchase(
       lastSyncedAtMillis: deps.now(),
       lastSource: "verify-purchase" as const,
     };
-    await safeWriteCache(deps.cache, packageName, entry.purchaseToken, cacheDoc);
+    await safeWriteCache(
+      deps.cache,
+      packageName,
+      entry.purchaseToken,
+      cacheDoc,
+    );
   }
 
   return { productId, productType, state };
 }
 
-function shouldRefresh(cached: NonNullable<Awaited<ReturnType<EntitlementCacheStore["read"]>>>, now: number): boolean {
+function shouldRefresh(
+  cached: NonNullable<Awaited<ReturnType<EntitlementCacheStore["read"]>>>,
+  now: number,
+): boolean {
   if (now - cached.lastSyncedAtMillis > CACHE_TTL_MILLIS) return true;
   // For subscriptions, refresh aggressively if we're within an hour of expiry — minimises the
   // window where a renewal that already happened isn't reflected back to the app yet.
@@ -202,7 +227,9 @@ function shouldRefresh(cached: NonNullable<Awaited<ReturnType<EntitlementCacheSt
   return false;
 }
 
-function rebuildResolvedFromCache(cached: NonNullable<Awaited<ReturnType<EntitlementCacheStore["read"]>>>): ResolvedPurchase {
+function rebuildResolvedFromCache(
+  cached: NonNullable<Awaited<ReturnType<EntitlementCacheStore["read"]>>>,
+): ResolvedPurchase {
   if (cached.productType === "subscription") {
     // The cache only persists the *decided* shape (`isPro`, `expiryMillis`) — not the full
     // PlaySubscriptionState. We synthesise a minimal state object whose ONLY field
@@ -248,25 +275,47 @@ function parseRequestBody(raw: unknown): VerifyPurchaseRequest | null {
   }
   if (typeof body !== "object" || body === null) return null;
   const obj = body as Record<string, unknown>;
-  const packageName = typeof obj.packageName === "string" ? obj.packageName : null;
-  const localIsPro = typeof obj.localIsPro === "boolean" ? obj.localIsPro : false;
-  const purchasesRaw = Array.isArray(obj.purchases) ? obj.purchases : null;
+  const packageName =
+    typeof obj.packageName === "string" &&
+    obj.packageName.length <= MAX_PACKAGE_NAME_LENGTH
+      ? obj.packageName
+      : null;
+  const localIsPro =
+    typeof obj.localIsPro === "boolean" ? obj.localIsPro : false;
+  const purchasesRaw =
+    Array.isArray(obj.purchases) &&
+    obj.purchases.length <= MAX_PURCHASES_PER_REQUEST
+      ? obj.purchases
+      : null;
   if (packageName === null || purchasesRaw === null) return null;
 
   const purchases: VerifyPurchaseEntry[] = [];
   for (const entry of purchasesRaw) {
     if (typeof entry !== "object" || entry === null) continue;
     const e = entry as Record<string, unknown>;
-    const purchaseToken = typeof e.purchaseToken === "string" ? e.purchaseToken : null;
+
+    // If purchaseToken is present but exceeds limit, it's a malformed/malicious request.
+    if (
+      typeof e.purchaseToken === "string" &&
+      e.purchaseToken.length > MAX_PURCHASE_TOKEN_LENGTH
+    ) {
+      return null;
+    }
+
+    const purchaseToken =
+      typeof e.purchaseToken === "string" ? e.purchaseToken : null;
     const products = Array.isArray(e.products)
-      ? (e.products.filter((p) => typeof p === "string") as string[])
+      ? (e.products.filter(
+          (p) => typeof p === "string" && p.length <= MAX_PRODUCT_ID_LENGTH,
+        ) as string[])
       : [];
     if (purchaseToken === null || products.length === 0) continue;
     purchases.push({
       purchaseToken,
       orderId: typeof e.orderId === "string" ? e.orderId : null,
       purchaseState: typeof e.purchaseState === "number" ? e.purchaseState : 0,
-      isAcknowledged: typeof e.isAcknowledged === "boolean" ? e.isAcknowledged : false,
+      isAcknowledged:
+        typeof e.isAcknowledged === "boolean" ? e.isAcknowledged : false,
       purchaseTime: typeof e.purchaseTime === "number" ? e.purchaseTime : 0,
       products,
     });
@@ -307,7 +356,11 @@ async function safeAcknowledgeSubscription(
   purchaseToken: string,
 ) {
   try {
-    await api.acknowledgeSubscription({ packageName, subscriptionId, purchaseToken });
+    await api.acknowledgeSubscription({
+      packageName,
+      subscriptionId,
+      purchaseToken,
+    });
   } catch (err) {
     // Acknowledgement is best-effort; a failure here costs us nothing because the app also
     // tries to acknowledge from `BillingClient.acknowledgePurchase`. Log and move on.

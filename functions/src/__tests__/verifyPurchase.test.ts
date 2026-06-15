@@ -23,7 +23,10 @@ interface FakeResponse {
   body?: unknown;
 }
 
-function fakeRequest(body: unknown, headers: Record<string, string> = {}): FakeRequest {
+function fakeRequest(
+  body: unknown,
+  headers: Record<string, string> = {},
+): FakeRequest {
   return {
     method: "POST",
     body,
@@ -92,7 +95,9 @@ describe("verifyPurchase HTTP handler", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await handler(req as any, res as any);
     expect(res.statusCode).toBe(200);
-    expect((res.body as VerifyPurchaseResponse).reason).toBe("package-mismatch");
+    expect((res.body as VerifyPurchaseResponse).reason).toBe(
+      "package-mismatch",
+    );
     expect((res.body as VerifyPurchaseResponse).isPro).toBe(false);
   });
 
@@ -150,7 +155,9 @@ describe("verifyPurchase HTTP handler", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await handler(req as any, res as any);
     expect((res.body as VerifyPurchaseResponse).isPro).toBe(true);
-    expect((res.body as VerifyPurchaseResponse).reason).toBe("subscription-active");
+    expect((res.body as VerifyPurchaseResponse).reason).toBe(
+      "subscription-active",
+    );
     expect(playApi.getSubscription).toHaveBeenCalledWith({
       packageName: "com.miaclean.app",
       subscriptionId: "pro_monthly",
@@ -261,6 +268,106 @@ describe("verifyPurchase HTTP handler", () => {
     await handler(req as any, res as any);
     expect(playApi.getSubscription).not.toHaveBeenCalled();
     expect((res.body as VerifyPurchaseResponse).isPro).toBe(true);
+  });
+
+  it("rejects oversized packageName with 400", async () => {
+    const handler = makeVerifyPurchaseHandler({
+      config: readRuntimeConfig(),
+      playApi: fakePlayApi(),
+      cache: createInMemoryCache(),
+      now: () => NOW,
+    });
+    const req = fakeRequest({
+      packageName: "a".repeat(129),
+      localIsPro: false,
+      purchases: [],
+    });
+    const res = fakeResponse();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await handler(req as any, res as any);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects too many purchases with 400", async () => {
+    const handler = makeVerifyPurchaseHandler({
+      config: readRuntimeConfig(),
+      playApi: fakePlayApi(),
+      cache: createInMemoryCache(),
+      now: () => NOW,
+    });
+    const purchases = Array(51).fill({
+      purchaseToken: "token",
+      products: ["pro_monthly"],
+    });
+    const req = fakeRequest({
+      packageName: "com.miaclean.app",
+      localIsPro: false,
+      purchases,
+    });
+    const res = fakeResponse();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await handler(req as any, res as any);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects oversized purchaseToken with 400", async () => {
+    const handler = makeVerifyPurchaseHandler({
+      config: readRuntimeConfig(),
+      playApi: fakePlayApi(),
+      cache: createInMemoryCache(),
+      now: () => NOW,
+    });
+    const req = fakeRequest({
+      packageName: "com.miaclean.app",
+      localIsPro: false,
+      purchases: [
+        {
+          purchaseToken: "t".repeat(2049),
+          products: ["pro_monthly"],
+        },
+      ],
+    });
+    const res = fakeResponse();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await handler(req as any, res as any);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("drops oversized productIds but keeps valid ones", async () => {
+    const playApi = fakePlayApi({
+      getSubscription: jest.fn(async () => ({
+        paymentState: 1,
+        expiryTimeMillis: NOW + 1000,
+        autoRenewing: true,
+        acknowledgementState: 1,
+      })),
+    });
+    const handler = makeVerifyPurchaseHandler({
+      config: readRuntimeConfig(),
+      playApi,
+      cache: createInMemoryCache(),
+      now: () => NOW,
+    });
+    const req = fakeRequest({
+      packageName: "com.miaclean.app",
+      localIsPro: false,
+      purchases: [
+        {
+          purchaseToken: "token-1",
+          products: ["p".repeat(129), "pro_monthly"],
+        },
+      ],
+    });
+    const res = fakeResponse();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await handler(req as any, res as any);
+    expect(res.statusCode).toBe(200);
+    expect((res.body as VerifyPurchaseResponse).isPro).toBe(true);
+    expect(playApi.getSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subscriptionId: "pro_monthly",
+      }),
+    );
   });
 
   it("rejects requests without App Check token when ENFORCE_APP_CHECK is true", async () => {

@@ -22,14 +22,26 @@ import { google, androidpublisher_v3 } from "googleapis";
 import type { PlayProductState, PlaySubscriptionState } from "./types";
 
 export interface PlayApiClient {
-  getSubscription(args: { packageName: string; subscriptionId: string; purchaseToken: string }):
-    Promise<PlaySubscriptionState | null>;
-  getProduct(args: { packageName: string; productId: string; purchaseToken: string }):
-    Promise<PlayProductState | null>;
-  acknowledgeSubscription(args: { packageName: string; subscriptionId: string; purchaseToken: string }):
-    Promise<void>;
-  acknowledgeProduct(args: { packageName: string; productId: string; purchaseToken: string }):
-    Promise<void>;
+  getSubscription(args: {
+    packageName: string;
+    subscriptionId: string;
+    purchaseToken: string;
+  }): Promise<PlaySubscriptionState | null>;
+  getProduct(args: {
+    packageName: string;
+    productId: string;
+    purchaseToken: string;
+  }): Promise<PlayProductState | null>;
+  acknowledgeSubscription(args: {
+    packageName: string;
+    subscriptionId: string;
+    purchaseToken: string;
+  }): Promise<void>;
+  acknowledgeProduct(args: {
+    packageName: string;
+    productId: string;
+    purchaseToken: string;
+  }): Promise<void>;
 }
 
 /**
@@ -103,7 +115,11 @@ export function wrapAndroidPublisher(
         throw err;
       }
     },
-    async acknowledgeSubscription({ packageName, subscriptionId, purchaseToken }) {
+    async acknowledgeSubscription({
+      packageName,
+      subscriptionId,
+      purchaseToken,
+    }) {
       await api.purchases.subscriptions.acknowledge({
         packageName,
         subscriptionId,

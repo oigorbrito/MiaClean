@@ -3,7 +3,9 @@ import type { PlayProductState, PlaySubscriptionState } from "../types";
 
 const NOW = 1_700_000_000_000;
 
-function sub(overrides: Partial<PlaySubscriptionState> = {}): PlaySubscriptionState {
+function sub(
+  overrides: Partial<PlaySubscriptionState> = {},
+): PlaySubscriptionState {
   return {
     paymentState: 1,
     expiryTimeMillis: NOW + 24 * 60 * 60 * 1000,
@@ -26,7 +28,9 @@ function product(overrides: Partial<PlayProductState> = {}): PlayProductState {
 
 describe("evaluateEntitlement", () => {
   it("returns no-purchases when the input is empty", () => {
-    expect(evaluateEntitlement({ resolvedPurchases: [], nowMillis: NOW })).toEqual({
+    expect(
+      evaluateEntitlement({ resolvedPurchases: [], nowMillis: NOW }),
+    ).toEqual({
       isPro: false,
       reason: "no-purchases",
     });

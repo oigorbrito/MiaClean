@@ -17,7 +17,8 @@ function fakeApi(overrides: {
       },
       products: {
         get: overrides.productGet ?? jest.fn(),
-        acknowledge: overrides.productAck ?? jest.fn(async () => ({ data: {} })),
+        acknowledge:
+          overrides.productAck ?? jest.fn(async () => ({ data: {} })),
       },
     },
   } as any;

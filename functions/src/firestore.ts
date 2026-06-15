@@ -27,8 +27,10 @@ import type { EntitlementCacheDoc } from "./types";
 const COLLECTION = "entitlement_cache";
 
 export interface EntitlementCacheStore {
-  read(args: { packageName: string; purchaseToken: string }):
-    Promise<EntitlementCacheDoc | null>;
+  read(args: {
+    packageName: string;
+    purchaseToken: string;
+  }): Promise<EntitlementCacheDoc | null>;
   write(
     args: { packageName: string; purchaseToken: string },
     doc: EntitlementCacheDoc,
@@ -42,7 +44,8 @@ export interface EntitlementCacheStore {
  */
 export function createFirestoreCache(): EntitlementCacheStore {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { getFirestore } = require("firebase-admin/firestore") as typeof import("firebase-admin/firestore");
+  const { getFirestore } =
+    require("firebase-admin/firestore") as typeof import("firebase-admin/firestore");
   const db = getFirestore();
   return {
     async read({ packageName, purchaseToken }) {
@@ -68,7 +71,9 @@ export function createFirestoreCache(): EntitlementCacheStore {
  * token to keep ids predictable-length without sacrificing the per-app scoping.
  */
 function docId(packageName: string, purchaseToken: string): string {
-  const hash = createHash("sha256").update(`${packageName}|${purchaseToken}`).digest("hex");
+  const hash = createHash("sha256")
+    .update(`${packageName}|${purchaseToken}`)
+    .digest("hex");
   return `${packageName}_${hash.slice(0, 24)}`;
 }
 

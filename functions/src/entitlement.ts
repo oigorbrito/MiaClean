@@ -25,7 +25,9 @@ export interface EntitlementInputs {
   nowMillis: number;
 }
 
-export function evaluateEntitlement(input: EntitlementInputs): VerifyPurchaseResponse {
+export function evaluateEntitlement(
+  input: EntitlementInputs,
+): VerifyPurchaseResponse {
   if (input.resolvedPurchases.length === 0) {
     return { isPro: false, reason: "no-purchases" };
   }
@@ -92,9 +94,16 @@ function decideOne(resolved: ResolvedPurchase, nowMillis: number): OneDecision {
   }
 }
 
-function decideSubscription(sub: PlaySubscriptionState, nowMillis: number): OneDecision {
+function decideSubscription(
+  sub: PlaySubscriptionState,
+  nowMillis: number,
+): OneDecision {
   if (sub.expiryTimeMillis <= nowMillis) {
-    return { isPro: false, reason: "all-expired", expiryMillis: sub.expiryTimeMillis };
+    return {
+      isPro: false,
+      reason: "all-expired",
+      expiryMillis: sub.expiryTimeMillis,
+    };
   }
   // Inside the access window: grant Pro regardless of paymentState. Play's docs enumerate
   // paymentState as 0=received, 1=free-trial, 2=pending, 3=on-hold (see types.ts), and the
@@ -126,7 +135,9 @@ function decideProduct(product: PlayProductState): OneDecision {
  * structural mismatch > revoked > expired > unknown. This is the value most likely to make a
  * triage log skim useful.
  */
-function chooseFailureReason(reasons: VerifyPurchaseReason[]): VerifyPurchaseReason {
+function chooseFailureReason(
+  reasons: VerifyPurchaseReason[],
+): VerifyPurchaseReason {
   const order: VerifyPurchaseReason[] = [
     "package-mismatch",
     "product-mismatch",
