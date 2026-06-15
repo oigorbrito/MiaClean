@@ -2,13 +2,13 @@ package com.miaclean.app.data.classify
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Rect
 import android.net.Uri
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.miaclean.app.util.BitmapUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.Closeable
 import javax.inject.Inject
@@ -70,7 +70,7 @@ class MemeDetector @Inject constructor(
         }
 
         val bitmap = try {
-            decodeDownscaled(uri)
+            BitmapUtils.decodeDownscaled(context, uri, RECOGNIZER_TARGET_PX)
         } catch (e: Exception) {
             logger.logFailure("MemeDetector", mediaId, ErrorCategory.IMAGE_INVALID, "Decoding failed: ${e.message}", System.currentTimeMillis() - startTime)
             onError(ErrorCategory.IMAGE_INVALID)
@@ -142,26 +142,6 @@ class MemeDetector @Inject constructor(
         return (box.width().toFloat() * (bottom - top).toFloat()).coerceAtLeast(0f)
     }
 
-    private fun decodeDownscaled(uri: Uri): Bitmap? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        try {
-            context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-        } catch (e: Exception) {
-            throw e
-        }
-        val longEdge = maxOf(bounds.outWidth, bounds.outHeight)
-        if (longEdge <= 0) return null
-        var sample = 1
-        while (longEdge / sample > RECOGNIZER_TARGET_PX) sample *= 2
-        val options = BitmapFactory.Options().apply { inSampleSize = sample }
-        return try {
-            context.contentResolver.openInputStream(uri)?.use {
-                BitmapFactory.decodeStream(it, null, options)
-            }
-        } catch (e: Exception) {
-            throw e
-        }
-    }
 
     override fun close() {
         if (recognizerLazy.isInitialized()) recognizerLazy.value?.close()

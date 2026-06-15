@@ -67,10 +67,11 @@ class ScanRepository @Inject constructor(
             var firstWarningErrorCode: ScanErrorCode? = null
             var firstWarningReasonResId: Int? = null
 
+            val cachedIds = withContext(Dispatchers.IO) { dao.findAllMediaIds().toSet() }
+
             withContext(Dispatchers.IO) {
                 items.forEachIndexed { index, item ->
-                    val cached = dao.findByMediaId(item.id)
-                    if (cached == null) {
+                    if (item.id !in cachedIds) {
                         val uri = Uri.parse(item.uri)
                         val md5 = md5Hasher.hash(uri) ?: throw IOException("MD5 failed")
 

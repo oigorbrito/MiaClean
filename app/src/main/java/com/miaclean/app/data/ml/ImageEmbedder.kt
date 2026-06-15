@@ -2,7 +2,6 @@ package com.miaclean.app.data.ml
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.components.containers.Embedding
@@ -10,6 +9,7 @@ import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.imageembedder.ImageEmbedder
 import com.google.mediapipe.tasks.vision.imageembedder.ImageEmbedderResult
+import com.miaclean.app.util.BitmapUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.Closeable
 import javax.inject.Inject
@@ -57,7 +57,7 @@ class ImageEmbedderWrapper @Inject constructor(
     /** Returns a floating-point embedding for the given image URI, or null when unavailable. */
     fun embed(uri: Uri): FloatArray? {
         val e = embedder ?: return null
-        val bitmap = decode(uri) ?: return null
+        val bitmap = BitmapUtils.decodeDownscaled(context, uri, EMBEDDER_TARGET_PX) ?: return null
         return try {
             val mpImage = BitmapImageBuilder(bitmap).build()
             val result: ImageEmbedderResult = e.embed(mpImage)
@@ -75,10 +75,6 @@ class ImageEmbedderWrapper @Inject constructor(
         return dot
     }
 
-    private fun decode(uri: Uri): Bitmap? = context.contentResolver.openInputStream(uri)?.use {
-        BitmapFactory.decodeStream(it)
-    }
-
     private fun Embedding.toFloats(): FloatArray = floatEmbedding()
 
     override fun close() {
@@ -89,5 +85,6 @@ class ImageEmbedderWrapper @Inject constructor(
 
     private companion object {
         const val MODEL_ASSET_PATH = "image_embedder.tflite"
+        const val EMBEDDER_TARGET_PX = 320
     }
 }

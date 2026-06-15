@@ -139,6 +139,7 @@ class ScanRepositoryHardeningTest {
     private fun stubHappyPath(item: MediaItem) {
         every { mediaStoreScanner.scanAll() } returns listOf(item)
         every { safScanner.scan(any()) } returns emptyList()
+        coEvery { dao.findAllMediaIds() } returns emptyList()
         coEvery { dao.findByMediaId(item.id) } returns null
         every { md5Hasher.hash(any()) } returns "md5-${item.id}"
         every { perceptualHasher.hash(any()) } returns "phash-${item.id}"
