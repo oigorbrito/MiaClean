@@ -1,5 +1,7 @@
 package com.miaclean.app.domain
 
+import androidx.annotation.StringRes
+
 /**
  * Coarse buckets used by the Results screen to help the user reason about what a duplicate group
  * is. The classification is a best-effort heuristic — treat it as a hint, not ground truth.
@@ -66,6 +68,20 @@ data class DuplicateGroup(
             ?: MediaCategory.Other
 }
 
+/** Error codes for the scan pipeline. */
+enum class ScanErrorCode {
+    PERMISSION_REVOKED,
+    MEDIA_UNAVAILABLE,
+    CLASSIFICATION_FAILED,
+    UNEXPECTED
+}
+
+/** Non-fatal issue that occurred during scan. */
+data class ScanWarning(
+    val errorCode: ScanErrorCode,
+    @StringRes val reasonResId: Int,
+)
+
 /** Progress emitted by the scan pipeline. */
 sealed interface ScanProgress {
     data object Idle : ScanProgress
@@ -73,8 +89,8 @@ sealed interface ScanProgress {
     data class Done(
         val duplicates: Int,
         val groups: Int,
-        /** Optional friendly error message resource if classification issues occurred but didn't stop the scan. */
-        val classificationErrorResId: Int? = null,
+        /** Optional non-fatal issue that occurred during scan. */
+        val warning: ScanWarning? = null,
     ) : ScanProgress
-    data class Failed(val reason: String) : ScanProgress
+    data class Failed(val errorCode: ScanErrorCode, @StringRes val reasonResId: Int) : ScanProgress
 }

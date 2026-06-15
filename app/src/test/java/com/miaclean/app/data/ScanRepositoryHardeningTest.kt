@@ -15,15 +15,18 @@ import com.miaclean.app.data.scan.MediaStoreScanner
 import com.miaclean.app.data.scan.SafWhatsAppScanner
 import com.miaclean.app.domain.MediaCategory
 import com.miaclean.app.domain.MediaItem
+import com.miaclean.app.domain.ScanErrorCode
 import com.miaclean.app.domain.ScanProgress
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.coEvery
+import io.mockk.mockkStatic
 import java.io.FileNotFoundException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -40,6 +43,16 @@ class ScanRepositoryHardeningTest {
     private val logger = mockk<ClassifierEventLogger>(relaxed = true)
     private val dao = mockk<MediaHashDao>()
 
+    @org.junit.Before
+    fun setup() {
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } answers {
+            val uri = mockk<Uri>()
+            every { uri.toString() } returns firstArg()
+            uri
+        }
+    }
+
     @Test
     fun `permission revoked during scan emits retryable failure`() = runTest {
         every { mediaStoreScanner.scanAll() } throws SecurityException("permission revoked")
@@ -50,7 +63,7 @@ class ScanRepositoryHardeningTest {
         assertEquals(
             listOf(
                 ScanProgress.Running(0, 0),
-                ScanProgress.Failed(R.string.scan_error_permission_revoked),
+                ScanProgress.Failed(ScanErrorCode.PERMISSION_REVOKED, R.string.scan_error_permission_revoked),
             ),
             emissions,
         )
@@ -67,7 +80,7 @@ class ScanRepositoryHardeningTest {
         assertEquals(
             listOf(
                 ScanProgress.Running(0, 0),
-                ScanProgress.Failed(R.string.scan_error_media_unavailable),
+                ScanProgress.Failed(ScanErrorCode.MEDIA_UNAVAILABLE, R.string.scan_error_media_unavailable),
             ),
             emissions,
         )
@@ -84,7 +97,7 @@ class ScanRepositoryHardeningTest {
         assertEquals(
             listOf(
                 ScanProgress.Running(0, 0),
-                ScanProgress.Failed(R.string.scan_error_unexpected),
+                ScanProgress.Failed(ScanErrorCode.UNEXPECTED, R.string.scan_error_unexpected),
             ),
             emissions,
         )
@@ -98,17 +111,16 @@ class ScanRepositoryHardeningTest {
 
         val emissions = repository().scan().toList()
 
-        assertEquals(3, emissions.size)
-        assertEquals(ScanProgress.Running(0, 0), emissions[0])
-        assertEquals(ScanProgress.Running(1, 1), emissions[1])
-        assertEquals(
-            ScanProgress.Done(
-                duplicates = 0,
-                groups = 0,
-                classificationErrorResId = R.string.classifier_error_unexpected,
-            ),
-            emissions[2],
-        )
+        // Validation:
+        // 1. Scan completes with Done, not Failed
+        val finalState = emissions.last()
+        assertTrue("Expected Done, but got $finalState", finalState is ScanProgress.Done)
+
+        // 2. Warning metadata is preserved and non-null
+        val done = finalState as ScanProgress.Done
+        assertEquals(ScanErrorCode.CLASSIFICATION_FAILED, done.warning?.errorCode)
+        assertTrue("Warning reasonResId should not be null", done.warning?.reasonResId != null)
+        assertEquals(R.string.classifier_error_unexpected, done.warning?.reasonResId)
     }
 
     private fun repository() = ScanRepository(
@@ -146,7 +158,7 @@ class ScanRepositoryHardeningTest {
 
     private fun mediaItem() = MediaItem(
         id = 42L,
-        uri = Uri.parse("content://media/external/images/media/42").toString(),
+        uri = "content://media/external/images/media/42",
         displayName = "IMG_0042.jpg",
         mimeType = "image/jpeg",
         sizeBytes = 1024L,

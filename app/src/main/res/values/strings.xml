@@ -25,6 +25,9 @@
     <string name="scan_progress">Scanned %1$d of %2$d</string>
     <string name="scan_idle">Tap Start scan to begin.</string>
     <string name="scan_done">Scan done: %1$d duplicates in %2$d groups.</string>
+    <string name="scan_error_permission_revoked">Media permission was revoked. Please grant access and try again.</string>
+    <string name="scan_error_media_unavailable">Some media files are no longer available on your device.</string>
+    <string name="scan_error_unexpected">An unexpected error occurred during the scan. Please try again.</string>
 
     <!-- Results -->
     <string name="results_title">Results</string>
