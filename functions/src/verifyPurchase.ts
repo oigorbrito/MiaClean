@@ -249,7 +249,6 @@ function parseRequestBody(raw: unknown): VerifyPurchaseRequest | null {
   if (typeof body !== "object" || body === null) return null;
   const obj = body as Record<string, unknown>;
   const packageName = typeof obj.packageName === "string" ? obj.packageName : null;
-  const localIsPro = typeof obj.localIsPro === "boolean" ? obj.localIsPro : false;
   const purchasesRaw = Array.isArray(obj.purchases) ? obj.purchases : null;
 
   // Security limits: enforce reasonable lengths and counts to prevent DoS.
@@ -266,13 +265,7 @@ function parseRequestBody(raw: unknown): VerifyPurchaseRequest | null {
       : [];
 
     if (purchaseToken === null || products.length === 0) continue;
-    if (purchaseToken.length > 2048) return null;
-
-    const validatedProducts: string[] = [];
-    for (const p of products) {
-      if (p.length > 128) return null; // Entire request rejected if any product ID is oversized.
-      validatedProducts.push(p);
-    }
+    if (purchaseToken.length > 2048 || products.some((p) => p.length > 128)) return null;
 
     purchases.push({
       purchaseToken,
@@ -280,10 +273,14 @@ function parseRequestBody(raw: unknown): VerifyPurchaseRequest | null {
       purchaseState: typeof e.purchaseState === "number" ? e.purchaseState : 0,
       isAcknowledged: typeof e.isAcknowledged === "boolean" ? e.isAcknowledged : false,
       purchaseTime: typeof e.purchaseTime === "number" ? e.purchaseTime : 0,
-      products: validatedProducts,
+      products,
     });
   }
-  return { packageName, localIsPro, purchases };
+  return {
+    packageName,
+    localIsPro: typeof obj.localIsPro === "boolean" ? obj.localIsPro : false,
+    purchases,
+  };
 }
 
 async function safeReadCache(

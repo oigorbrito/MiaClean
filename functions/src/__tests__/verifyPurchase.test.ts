@@ -24,11 +24,7 @@ interface FakeResponse {
 }
 
 function fakeRequest(body: unknown, headers: Record<string, string> = {}): FakeRequest {
-  return {
-    method: "POST",
-    body,
-    header: jest.fn((name: string) => headers[name]),
-  };
+  return { method: "POST", body, header: jest.fn((name: string) => headers[name]) };
 }
 
 function fakeResponse(): FakeResponse {
@@ -83,11 +79,7 @@ describe("verifyPurchase HTTP handler", () => {
       cache: createInMemoryCache(),
       now: () => NOW,
     });
-    const req = fakeRequest({
-      packageName: "com.evil.app",
-      localIsPro: false,
-      purchases: [],
-    });
+    const req = fakeRequest({ packageName: "com.evil.app", localIsPro: false, purchases: [] });
     const res = fakeResponse();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await handler(req as any, res as any);
@@ -103,11 +95,7 @@ describe("verifyPurchase HTTP handler", () => {
       cache: createInMemoryCache(),
       now: () => NOW,
     });
-    const req = fakeRequest({
-      packageName: "com.miaclean.app",
-      localIsPro: false,
-      purchases: [],
-    });
+    const req = fakeRequest({ packageName: "com.miaclean.app", localIsPro: false, purchases: [] });
     const res = fakeResponse();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await handler(req as any, res as any);
@@ -271,11 +259,7 @@ describe("verifyPurchase HTTP handler", () => {
       cache: createInMemoryCache(),
       now: () => NOW,
     });
-    const req = fakeRequest({
-      packageName: "com.miaclean.app",
-      localIsPro: false,
-      purchases: [],
-    });
+    const req = fakeRequest({ packageName: "com.miaclean.app", localIsPro: false, purchases: [] });
     const res = fakeResponse();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await handler(req as any, res as any);
@@ -328,98 +312,20 @@ describe("verifyPurchase HTTP handler", () => {
   });
 
   describe("security limits", () => {
-    it("rejects oversized packageName (> 128 chars)", async () => {
+    test.each([
+      ["oversized packageName", { packageName: "a".repeat(129), purchases: [] }],
+      ["too many purchases", { packageName: "com.a", purchases: Array(51).fill({ purchaseToken: "t", products: ["p"] }) }],
+      ["oversized purchaseToken", { packageName: "com.a", purchases: [{ purchaseToken: "a".repeat(2049), products: ["p"] }] }],
+      ["oversized productId", { packageName: "com.a", purchases: [{ purchaseToken: "t", products: ["a".repeat(129)] }] }],
+    ])("rejects %s with 400", async (_, body) => {
       const handler = makeVerifyPurchaseHandler({
         config: readRuntimeConfig(),
         playApi: fakePlayApi(),
         cache: createInMemoryCache(),
         now: () => NOW,
       });
-      const req = fakeRequest({
-        packageName: "a".repeat(129),
-        localIsPro: false,
-        purchases: [],
-      });
       const res = fakeResponse();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await handler(req as any, res as any);
-      expect(res.statusCode).toBe(400);
-    });
-
-    it("rejects too many purchases (> 50)", async () => {
-      const handler = makeVerifyPurchaseHandler({
-        config: readRuntimeConfig(),
-        playApi: fakePlayApi(),
-        cache: createInMemoryCache(),
-        now: () => NOW,
-      });
-      const purchases = Array.from({ length: 51 }, (_, i) => ({
-        purchaseToken: `token-${i}`,
-        products: ["pro_monthly"],
-        purchaseState: 1,
-        isAcknowledged: true,
-        purchaseTime: NOW,
-      }));
-      const req = fakeRequest({
-        packageName: "com.miaclean.app",
-        localIsPro: false,
-        purchases,
-      });
-      const res = fakeResponse();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await handler(req as any, res as any);
-      expect(res.statusCode).toBe(400);
-    });
-
-    it("rejects oversized purchaseToken (> 2048 chars)", async () => {
-      const handler = makeVerifyPurchaseHandler({
-        config: readRuntimeConfig(),
-        playApi: fakePlayApi(),
-        cache: createInMemoryCache(),
-        now: () => NOW,
-      });
-      const req = fakeRequest({
-        packageName: "com.miaclean.app",
-        localIsPro: false,
-        purchases: [
-          {
-            purchaseToken: "a".repeat(2049),
-            products: ["pro_monthly"],
-            purchaseState: 1,
-            isAcknowledged: true,
-            purchaseTime: NOW,
-          },
-        ],
-      });
-      const res = fakeResponse();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await handler(req as any, res as any);
-      expect(res.statusCode).toBe(400);
-    });
-
-    it("rejects oversized productId (> 128 chars)", async () => {
-      const handler = makeVerifyPurchaseHandler({
-        config: readRuntimeConfig(),
-        playApi: fakePlayApi(),
-        cache: createInMemoryCache(),
-        now: () => NOW,
-      });
-      const req = fakeRequest({
-        packageName: "com.miaclean.app",
-        localIsPro: false,
-        purchases: [
-          {
-            purchaseToken: "token-1",
-            products: ["a".repeat(129)],
-            purchaseState: 1,
-            isAcknowledged: true,
-            purchaseTime: NOW,
-          },
-        ],
-      });
-      const res = fakeResponse();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await handler(req as any, res as any);
+      await handler(fakeRequest(body) as any, res as any);
       expect(res.statusCode).toBe(400);
     });
   });
