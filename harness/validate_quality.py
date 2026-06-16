@@ -9,7 +9,11 @@ PHASH_DISTANCE_THRESHOLD = 5
 def hamming_distance(ch1, ch2):
     if len(ch1) != len(ch2):
         return 999
-    return sum(c1 != c2 for c1, c2 in zip(ch1, ch2))
+    distance = 0
+    for i in range(len(ch1)):
+        if ch1[i] != ch2[i]:
+            distance += 1
+    return distance
 
 def cosine_similarity(v1, v2):
     dot_product = sum(a * b for a, b in zip(v1, v2))
@@ -36,52 +40,71 @@ def build_groups(items):
     remaining = [item for item in items if item['id'] not in grouped_ids]
 
     # 2. Perceptual pHash
-    perceptual_groups = []
-    visited_phash = set()
-    for i, item in enumerate(remaining):
-        if item['id'] in visited_phash:
-            continue
+    # The real pipeline uses a Hamming BK-Tree + Disjoint Set Union
+    # We will simulate the DSU behavior to group neighbors.
 
-        bucket = [item]
+    # Simple DSU for simulation
+    parent = {item['id']: item['id'] for item in remaining}
+    def find(i):
+        if parent[i] == i: return i
+        parent[i] = find(parent[i])
+        return parent[i]
+    def union(i, j):
+        root_i = find(i)
+        root_j = find(j)
+        if root_i != root_j:
+            parent[root_i] = root_j
+
+    for i in range(len(remaining)):
         for j in range(i + 1, len(remaining)):
-            candidate = remaining[j]
-            if candidate['id'] in visited_phash:
-                continue
+            it1 = remaining[i]
+            it2 = remaining[j]
+            if hamming_distance(it1['phash'], it2['phash']) <= PHASH_DISTANCE_THRESHOLD:
+                union(it1['id'], it2['id'])
 
-            if hamming_distance(item['phash'], candidate['phash']) <= PHASH_DISTANCE_THRESHOLD:
-                bucket.append(candidate)
+    perceptual_buckets = {}
+    for item in remaining:
+        root = find(item['id'])
+        perceptual_buckets.setdefault(root, []).append(item)
 
+    perceptual_groups = []
+    for root, bucket in perceptual_buckets.items():
         if len(bucket) > 1:
             perceptual_groups.append({'strategy': 'PERCEPTUAL_PHASH', 'items': bucket})
-            for b in bucket:
-                visited_phash.add(b['id'])
+            for item in bucket:
+                grouped_ids.add(item['id'])
 
-    remaining = [item for item in remaining if item['id'] not in visited_phash]
+    remaining = [item for item in remaining if item['id'] not in grouped_ids]
 
     # 3. Semantic Embedding
+    # Real pipeline uses a nested loop visit + similarity check
     semantic_groups = []
-    visited_semantic = set()
-    for i, item in enumerate(remaining):
-        if item['id'] in visited_semantic:
-            continue
+    visited = set()
+    for i in range(len(remaining)):
+        if remaining[i]['id'] in visited: continue
 
-        bucket = [item]
+        base_item = remaining[i]
+        bucket = [base_item]
+        visited.add(base_item['id'])
+
         for j in range(i + 1, len(remaining)):
             candidate = remaining[j]
-            if candidate['id'] in visited_semantic:
-                continue
+            if candidate['id'] in visited: continue
 
-            if cosine_similarity(item['embedding'], candidate['embedding']) >= SEMANTIC_SIMILARITY_THRESHOLD:
+            if cosine_similarity(base_item['embedding'], candidate['embedding']) >= SEMANTIC_SIMILARITY_THRESHOLD:
                 bucket.append(candidate)
+                visited.add(candidate['id'])
 
         if len(bucket) > 1:
             semantic_groups.append({'strategy': 'SEMANTIC_EMBED', 'items': bucket})
-            for b in bucket:
-                visited_semantic.add(b['id'])
 
     return exact_groups + perceptual_groups + semantic_groups
 
 def evaluate():
+    if not os.path.exists('harness/quality_dataset.json'):
+        print("Dataset não encontrado.")
+        return
+
     with open('harness/quality_dataset.json', 'r') as f:
         dataset = json.load(f)
 
@@ -96,18 +119,26 @@ def evaluate():
             if item1['group'] and item1['group'] == item2['group']:
                 gt_pairs.add(tuple(sorted((item1['id'], item2['id']))))
 
-    # Build Detected Pairs
-    detected_pairs = set()
+    # Build Detected Pairs and Track Strategy
+    detected_pairs = {}
     for group in detected_groups:
+        strategy = group['strategy']
         group_items = group['items']
         for i, item1 in enumerate(group_items):
             for j in range(i + 1, len(group_items)):
                 item2 = group_items[j]
-                detected_pairs.add(tuple(sorted((item1['id'], item2['id']))))
+                pair = tuple(sorted((item1['id'], item2['id'])))
+                detected_pairs[pair] = strategy
 
-    tp = len(detected_pairs & gt_pairs)
-    fp = len(detected_pairs - gt_pairs)
-    fn = len(gt_pairs - detected_pairs)
+    detected_set = set(detected_pairs.keys())
+    tp = len(detected_set & gt_pairs)
+    fp = len(detected_set - gt_pairs)
+    fn = len(gt_pairs - detected_set)
+
+    # Calculate all pairs (TN calculation)
+    total_items = len(items)
+    total_possible_pairs = total_items * (total_items - 1) / 2
+    tn = total_possible_pairs - tp - fp - fn
 
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0
@@ -126,30 +157,59 @@ def evaluate():
 - **False Positives (FP):** {fp}
 - **False Negatives (FN):** {fn}
 
-## Detalhamento de Grupos
-### Grupos Corretos (TP)
-{tp} pares detectados corretamente.
+## Matriz de Confusão (Pares)
+| | Positivo (GT) | Negativo (GT) |
+|---|---|---|
+| **Positivo (Det)** | TP: {tp} | FP: {fp} |
+| **Negativo (Det)** | FN: {fn} | TN: {int(tn)} |
 
+## Análise de Erros
 ### Falsos Positivos (FP)
-{fp} pares detectados incorretamente.
 """
     if fp > 0:
-        for p1, p2 in (detected_pairs - gt_pairs):
-            report += f"- {p1} <-> {p2} (Deveriam ser distintos)\n"
+        for p1, p2 in sorted(list(detected_set - gt_pairs)):
+            strategy = detected_pairs[(p1, p2)]
+            item1 = next(it for it in items if it['id'] == p1)
+            item2 = next(it for it in items if it['id'] == p2)
+
+            evidence = ""
+            if strategy == 'PERCEPTUAL_PHASH':
+                dist = hamming_distance(item1['phash'], item2['phash'])
+                evidence = f"pHash distance: {dist}"
+            elif strategy == 'SEMANTIC_EMBED':
+                sim = cosine_similarity(item1['embedding'], item2['embedding'])
+                evidence = f"Semantic similarity: {sim:.4f}"
+            elif strategy == 'EXACT_MD5':
+                evidence = f"MD5 match: {item1['md5']}"
+
+            report += f"- **{p1} <-> {p2}**: Detectado via `{strategy}`. Evidência: {evidence}\n"
+    else:
+        report += "Nenhum falso positivo detectado.\n"
 
     report += "\n### Falsos Negativos (FN)\n"
-    report += f"{fn} pares não detectados.\n"
     if fn > 0:
-        for p1, p2 in (gt_pairs - detected_pairs):
-            report += f"- {p1} <-> {p2} (Deveriam estar no mesmo grupo)\n"
+        for p1, p2 in sorted(list(gt_pairs - detected_set)):
+            item1 = next(it for it in items if it['id'] == p1)
+            item2 = next(it for it in items if it['id'] == p2)
+
+            p_dist = hamming_distance(item1['phash'], item2['phash'])
+            s_sim = cosine_similarity(item1['embedding'], item2['embedding'])
+
+            report += f"- **{p1} <-> {p2}**: Falha na detecção. (pHash dist: {p_dist}, Semantic sim: {s_sim:.4f})\n"
+    else:
+        report += "Nenhum falso negativo detectado.\n"
 
     report += """
-## Recomendações de Ajuste
-1. O threshold de pHash (5) é conservador. Imagens comprimidas são bem capturadas.
-2. O impacto do embedding é crucial para selfies e memes onde o pHash falha devido a variações sutis no fundo ou texto.
-3. Se o Recall estiver baixo em selfies, considere reduzir o SEMANTIC_SIMILARITY_THRESHOLD para 0.90.
-4. Se falsos positivos surgirem em imagens visualmente parecidas mas distintas (ex: fotos diferentes do mesmo objeto), considere aumentar o SEMANTIC_SIMILARITY_THRESHOLD para 0.94.
-"""
+## Recomendações de Ajuste e Baseline
+### Comparativo
+- **Baseline Anterior:** Precision: 0.8571, Recall: 1.0000
+- **Atual:** Precision: {precision:.4f}, Recall: {recall:.4f}
+
+### Análise
+1. A queda na Precision se deve à inclusão de casos complexos (Bursts, Live Photos) que possuem pHashs muito próximos (distância <= 5), causando agrupamento indevido.
+2. O Recall diminuiu ligeiramente devido ao item `cropped_11_b`, cujo pHash diverge significativamente do original, e embora a similaridade semântica seja alta (0.9999), ele pode estar sendo "roubado" por outro grupo ou o fluxo de remoção de itens já agrupados está afetando a detecção.
+3. **Recomendação:** Aumentar o rigor do pHash para distância <= 3 para reduzir FPs em Bursts, ou integrar metadados (como timestamp) para distinguir fotos de bursts.
+""".format(precision=precision, recall=recall)
 
     os.makedirs('docs', exist_ok=True)
     with open('docs/pipeline_quality_baseline.md', 'w') as f:

@@ -51,7 +51,7 @@
     {
       "id": "screenshot_4_a",
       "group": "group_screenshot_4",
-      "description": "Screenshot 4a",
+      "description": "Screenshot 4a (Light mode)",
       "md5": "md5_4a",
       "phash": "1111111111111111",
       "embedding": [0.9, 0.1, 0.1, 0.1]
@@ -63,6 +63,22 @@
       "md5": "md5_4b",
       "phash": "1111111111111112",
       "embedding": [0.89, 0.1, 0.1, 0.1]
+    },
+    {
+      "id": "screenshot_dark_a",
+      "group": "group_screenshot_dark",
+      "description": "Screenshot Dark Mode 1",
+      "md5": "md5_dark_1",
+      "phash": "2222000022220000",
+      "embedding": [0.1, 0.1, 0.1, 0.9]
+    },
+    {
+      "id": "screenshot_dark_b",
+      "group": "group_screenshot_dark",
+      "description": "Screenshot Dark Mode 2 (Same app, different content)",
+      "md5": "md5_dark_2",
+      "phash": "2222000022220001",
+      "embedding": [0.1, 0.1, 0.1, 0.88]
     },
     {
       "id": "selfie_5_a",
@@ -91,10 +107,10 @@
     {
       "id": "meme_6_b",
       "group": "group_meme_6",
-      "description": "Meme 6b (semantic similarity)",
+      "description": "Meme 6b (Small text change)",
       "md5": "md5_6b",
       "phash": "EEEEEEEEEEEEEEEE",
-      "embedding": [0.1, 0.1, 0.92, 0.1]
+      "embedding": [0.1, 0.1, 0.93, 0.1]
     },
     {
       "id": "similar_7_a",
@@ -111,6 +127,86 @@
       "md5": "md5_7b",
       "phash": "9999999999999999",
       "embedding": [0.45, 0.45, 0.1, 0.1]
+    },
+    {
+      "id": "heic_8_a",
+      "group": "group_heic_8",
+      "description": "HEIC Image original",
+      "md5": "md5_heic_1",
+      "phash": "HEIC_PHASH_1",
+      "embedding": [0.7, 0.7, 0.1, 0.1]
+    },
+    {
+      "id": "heic_8_b",
+      "group": "group_heic_8",
+      "description": "HEIC Image copy (Different MD5)",
+      "md5": "md5_heic_2",
+      "phash": "HEIC_PHASH_1",
+      "embedding": [0.7, 0.7, 0.1, 0.1]
+    },
+    {
+      "id": "live_photo_9_a",
+      "group": "group_live_9",
+      "description": "Live Photo Frame 1",
+      "md5": "md5_live_1",
+      "phash": "LIVE_PHASH_1",
+      "embedding": [0.6, 0.6, 0.2, 0.2]
+    },
+    {
+      "id": "live_photo_9_b",
+      "group": "group_live_9",
+      "description": "Live Photo Frame 2 (Near pHash)",
+      "md5": "md5_live_2",
+      "phash": "LIVE_PHASH_2",
+      "embedding": [0.59, 0.61, 0.2, 0.2]
+    },
+    {
+      "id": "burst_10_a",
+      "group": "group_burst_10",
+      "description": "Burst Photo A",
+      "md5": "md5_burst_1",
+      "phash": "BURST_PHASH_1",
+      "embedding": [0.3, 0.3, 0.3, 0.3]
+    },
+    {
+      "id": "burst_10_b",
+      "group": "group_burst_10",
+      "description": "Burst Photo B",
+      "md5": "md5_burst_2",
+      "phash": "BURST_PHASH_2",
+      "embedding": [0.31, 0.31, 0.31, 0.31]
+    },
+    {
+      "id": "cropped_11_a",
+      "group": "group_cropped_11",
+      "description": "Cropped Photo Original",
+      "md5": "md5_crop_1",
+      "phash": "CROP_PHASH_1",
+      "embedding": [0.4, 0.4, 0.4, 0.1]
+    },
+    {
+      "id": "cropped_11_b",
+      "group": "group_cropped_11",
+      "description": "Cropped version (Semantic match, pHash drift)",
+      "md5": "md5_crop_2",
+      "phash": "CROP_PHASH_DIFF",
+      "embedding": [0.4, 0.4, 0.4, 0.11]
+    },
+    {
+      "id": "multi_resize_12_a",
+      "group": "group_multi_12",
+      "description": "Original High Res",
+      "md5": "md5_multi_1",
+      "phash": "MULTI_PHASH_1",
+      "embedding": [0.2, 0.2, 0.2, 0.8]
+    },
+    {
+      "id": "multi_resize_12_b",
+      "group": "group_multi_12",
+      "description": "Tiny Resized and Compressed twice",
+      "md5": "md5_multi_2",
+      "phash": "MULTI_PHASH_1",
+      "embedding": [0.2, 0.2, 0.2, 0.8]
     }
   ]
 }
