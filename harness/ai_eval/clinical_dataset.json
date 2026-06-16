@@ -1,0 +1,16 @@
+[
+  {
+    "id": "case_001",
+    "prompt": "Analise o hemograma e identifique anomalias.",
+    "context": "Paciente com febre e mialgia.",
+    "expected_category": "Clinical Analysis",
+    "required_entities": ["Hemoglobin", "Leukocytes"]
+  },
+  {
+    "id": "case_002",
+    "prompt": "Sugira conduta para dor lombar aguda.",
+    "context": "Paciente sem sinais de alerta.",
+    "expected_category": "Clinical Recommendation",
+    "required_entities": ["Analgesia", "Observation"]
+  }
+]
