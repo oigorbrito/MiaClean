@@ -251,7 +251,10 @@ function parseRequestBody(raw: unknown): VerifyPurchaseRequest | null {
   const packageName = typeof obj.packageName === "string" ? obj.packageName : null;
   const localIsPro = typeof obj.localIsPro === "boolean" ? obj.localIsPro : false;
   const purchasesRaw = Array.isArray(obj.purchases) ? obj.purchases : null;
-  if (packageName === null || purchasesRaw === null) return null;
+
+  // Security limits: enforce reasonable lengths and counts to prevent DoS.
+  if (packageName === null || packageName.length > 128 || purchasesRaw === null) return null;
+  if (purchasesRaw.length > 50) return null;
 
   const purchases: VerifyPurchaseEntry[] = [];
   for (const entry of purchasesRaw) {
@@ -261,14 +264,23 @@ function parseRequestBody(raw: unknown): VerifyPurchaseRequest | null {
     const products = Array.isArray(e.products)
       ? (e.products.filter((p) => typeof p === "string") as string[])
       : [];
+
     if (purchaseToken === null || products.length === 0) continue;
+    if (purchaseToken.length > 2048) return null;
+
+    const validatedProducts: string[] = [];
+    for (const p of products) {
+      if (p.length > 128) return null; // Entire request rejected if any product ID is oversized.
+      validatedProducts.push(p);
+    }
+
     purchases.push({
       purchaseToken,
       orderId: typeof e.orderId === "string" ? e.orderId : null,
       purchaseState: typeof e.purchaseState === "number" ? e.purchaseState : 0,
       isAcknowledged: typeof e.isAcknowledged === "boolean" ? e.isAcknowledged : false,
       purchaseTime: typeof e.purchaseTime === "number" ? e.purchaseTime : 0,
-      products,
+      products: validatedProducts,
     });
   }
   return { packageName, localIsPro, purchases };

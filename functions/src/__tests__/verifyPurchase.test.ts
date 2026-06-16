@@ -326,4 +326,101 @@ describe("verifyPurchase HTTP handler", () => {
     await handler(req as any, res as any);
     expect((res.body as VerifyPurchaseResponse).isPro).toBe(true);
   });
+
+  describe("security limits", () => {
+    it("rejects oversized packageName (> 128 chars)", async () => {
+      const handler = makeVerifyPurchaseHandler({
+        config: readRuntimeConfig(),
+        playApi: fakePlayApi(),
+        cache: createInMemoryCache(),
+        now: () => NOW,
+      });
+      const req = fakeRequest({
+        packageName: "a".repeat(129),
+        localIsPro: false,
+        purchases: [],
+      });
+      const res = fakeResponse();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await handler(req as any, res as any);
+      expect(res.statusCode).toBe(400);
+    });
+
+    it("rejects too many purchases (> 50)", async () => {
+      const handler = makeVerifyPurchaseHandler({
+        config: readRuntimeConfig(),
+        playApi: fakePlayApi(),
+        cache: createInMemoryCache(),
+        now: () => NOW,
+      });
+      const purchases = Array.from({ length: 51 }, (_, i) => ({
+        purchaseToken: `token-${i}`,
+        products: ["pro_monthly"],
+        purchaseState: 1,
+        isAcknowledged: true,
+        purchaseTime: NOW,
+      }));
+      const req = fakeRequest({
+        packageName: "com.miaclean.app",
+        localIsPro: false,
+        purchases,
+      });
+      const res = fakeResponse();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await handler(req as any, res as any);
+      expect(res.statusCode).toBe(400);
+    });
+
+    it("rejects oversized purchaseToken (> 2048 chars)", async () => {
+      const handler = makeVerifyPurchaseHandler({
+        config: readRuntimeConfig(),
+        playApi: fakePlayApi(),
+        cache: createInMemoryCache(),
+        now: () => NOW,
+      });
+      const req = fakeRequest({
+        packageName: "com.miaclean.app",
+        localIsPro: false,
+        purchases: [
+          {
+            purchaseToken: "a".repeat(2049),
+            products: ["pro_monthly"],
+            purchaseState: 1,
+            isAcknowledged: true,
+            purchaseTime: NOW,
+          },
+        ],
+      });
+      const res = fakeResponse();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await handler(req as any, res as any);
+      expect(res.statusCode).toBe(400);
+    });
+
+    it("rejects oversized productId (> 128 chars)", async () => {
+      const handler = makeVerifyPurchaseHandler({
+        config: readRuntimeConfig(),
+        playApi: fakePlayApi(),
+        cache: createInMemoryCache(),
+        now: () => NOW,
+      });
+      const req = fakeRequest({
+        packageName: "com.miaclean.app",
+        localIsPro: false,
+        purchases: [
+          {
+            purchaseToken: "token-1",
+            products: ["a".repeat(129)],
+            purchaseState: 1,
+            isAcknowledged: true,
+            purchaseTime: NOW,
+          },
+        ],
+      });
+      const res = fakeResponse();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await handler(req as any, res as any);
+      expect(res.statusCode).toBe(400);
+    });
+  });
 });
