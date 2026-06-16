@@ -116,6 +116,10 @@ def validate_changes(scope, changes, allowed_files, allow_critical):
                 elif scope == "infra":
                     file_ok = True
                     reason = "Permitido em escopo infra"
+                # Backend changes (functions/**) are allowed in bugfix/feature scopes
+                elif scope in ["bugfix", "feature"] and is_match_any(path, ["functions/**"]):
+                    file_ok = True
+                    reason = f"Permitido para backend em escopo {scope}"
                 else:
                     file_ok = False
                     if is_critical:
