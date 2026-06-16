@@ -1,0 +1,116 @@
+{
+  "test_cases": [
+    {
+      "id": "exact_1_a",
+      "group": "group_exact_1",
+      "description": "Exact duplicate A",
+      "md5": "md5_1",
+      "phash": "phash_1",
+      "embedding": [0.1, 0.2, 0.3, 0.4]
+    },
+    {
+      "id": "exact_1_b",
+      "group": "group_exact_1",
+      "description": "Exact duplicate B (Same MD5)",
+      "md5": "md5_1",
+      "phash": "phash_1",
+      "embedding": [0.1, 0.2, 0.3, 0.4]
+    },
+    {
+      "id": "resized_2_a",
+      "group": "group_resized_2",
+      "description": "Original image",
+      "md5": "md5_2",
+      "phash": "phash_2",
+      "embedding": [0.5, 0.1, 0.1, 0.1]
+    },
+    {
+      "id": "resized_2_b",
+      "group": "group_resized_2",
+      "description": "Resized version (Different MD5, same pHash/Embedding)",
+      "md5": "md5_2_resized",
+      "phash": "phash_2",
+      "embedding": [0.5, 0.1, 0.1, 0.1]
+    },
+    {
+      "id": "compressed_3_a",
+      "group": "group_compressed_3",
+      "description": "Original image 3",
+      "md5": "md5_3",
+      "phash": "ABCDEF1234567890",
+      "embedding": [0.2, 0.8, 0.1, 0.1]
+    },
+    {
+      "id": "compressed_3_b",
+      "group": "group_compressed_3",
+      "description": "Compressed version (Different MD5, near pHash)",
+      "md5": "md5_3_compressed",
+      "phash": "ABCDEF1234567891",
+      "embedding": [0.2, 0.8, 0.1, 0.1]
+    },
+    {
+      "id": "screenshot_4_a",
+      "group": "group_screenshot_4",
+      "description": "Screenshot 4a",
+      "md5": "md5_4a",
+      "phash": "1111111111111111",
+      "embedding": [0.9, 0.1, 0.1, 0.1]
+    },
+    {
+      "id": "screenshot_4_b",
+      "group": "group_screenshot_4",
+      "description": "Screenshot 4b (visually similar)",
+      "md5": "md5_4b",
+      "phash": "1111111111111112",
+      "embedding": [0.89, 0.1, 0.1, 0.1]
+    },
+    {
+      "id": "selfie_5_a",
+      "group": "group_selfie_5",
+      "description": "Selfie 5a",
+      "md5": "md5_5a",
+      "phash": "2222222222222222",
+      "embedding": [0.1, 0.9, 0.1, 0.1]
+    },
+    {
+      "id": "selfie_5_b",
+      "group": "group_selfie_5",
+      "description": "Selfie 5b (semantic similarity)",
+      "md5": "md5_5b",
+      "phash": "FFFFFFFFFFFFFFFF",
+      "embedding": [0.1, 0.91, 0.1, 0.1]
+    },
+    {
+      "id": "meme_6_a",
+      "group": "group_meme_6",
+      "description": "Meme 6a",
+      "md5": "md5_6a",
+      "phash": "3333333333333333",
+      "embedding": [0.1, 0.1, 0.9, 0.1]
+    },
+    {
+      "id": "meme_6_b",
+      "group": "group_meme_6",
+      "description": "Meme 6b (semantic similarity)",
+      "md5": "md5_6b",
+      "phash": "EEEEEEEEEEEEEEEE",
+      "embedding": [0.1, 0.1, 0.92, 0.1]
+    },
+    {
+      "id": "similar_7_a",
+      "group": null,
+      "description": "Visually similar but distinct 7a",
+      "md5": "md5_7a",
+      "phash": "4444444444444444",
+      "embedding": [0.5, 0.5, 0.0, 0.0]
+    },
+    {
+      "id": "similar_7_b",
+      "group": null,
+      "description": "Visually similar but distinct 7b (Below threshold)",
+      "md5": "md5_7b",
+      "phash": "9999999999999999",
+      "embedding": [0.45, 0.45, 0.1, 0.1]
+    }
+  ]
+}

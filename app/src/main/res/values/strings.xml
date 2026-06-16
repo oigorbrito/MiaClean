@@ -20,6 +20,9 @@
 
     <!-- Scan -->
     <string name="scan_title">Looking for duplicates</string>
+    <string name="scan_error_permission_revoked">Media permissions were revoked. Please grant them in Settings and try again.</string>
+    <string name="scan_error_media_unavailable">Some media files are currently inaccessible.</string>
+    <string name="scan_error_unexpected">An unexpected error occurred during the scan.</string>
     <string name="scan_start">Start scan</string>
     <string name="scan_cancel">Cancel</string>
     <string name="scan_progress">Scanned %1$d of %2$d</string>

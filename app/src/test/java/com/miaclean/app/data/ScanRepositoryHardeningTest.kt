@@ -19,6 +19,7 @@ import com.miaclean.app.domain.ScanProgress
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.coEvery
+import io.mockk.mockkStatic
 import java.io.FileNotFoundException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
@@ -39,6 +40,14 @@ class ScanRepositoryHardeningTest {
     private val memeDetector = mockk<MemeDetector>()
     private val logger = mockk<ClassifierEventLogger>(relaxed = true)
     private val dao = mockk<MediaHashDao>()
+
+    @org.junit.Before
+    fun setup() {
+        mockkStatic(Uri::class)
+        val mockUri = mockk<Uri>()
+        every { Uri.parse(any()) } returns mockUri
+        every { mockUri.toString() } returns "content://mock"
+    }
 
     @Test
     fun `permission revoked during scan emits retryable failure`() = runTest {

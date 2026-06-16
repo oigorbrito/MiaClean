@@ -20,6 +20,9 @@
 
     <!-- Scan -->
     <string name="scan_title">Procurando duplicadas</string>
+    <string name="scan_error_permission_revoked">Permissões de mídia foram revogadas. Por favor, conceda-as nas Configurações e tente novamente.</string>
+    <string name="scan_error_media_unavailable">Alguns arquivos de mídia estão inacessíveis no momento.</string>
+    <string name="scan_error_unexpected">Ocorreu um erro inesperado durante o scan.</string>
     <string name="scan_start">Iniciar scan</string>
     <string name="scan_cancel">Cancelar</string>
     <string name="scan_progress">Analisado %1$d de %2$d</string>
