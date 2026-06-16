@@ -49,9 +49,14 @@ class ScanWorker @AssistedInject constructor(
                 maybeNotifyDelta(groups)
                 Result.success()
             }
-            is ScanProgress.Failed -> Result.failure()
+            is ScanProgress.Failed -> scanFailureResult(final.reasonResId)
             else -> Result.success()
         }
+    }
+
+    internal fun scanFailureResult(reasonResId: Int): Result = when (reasonResId) {
+        R.string.scan_error_unexpected -> Result.retry()
+        else -> Result.failure()
     }
 
     /**
