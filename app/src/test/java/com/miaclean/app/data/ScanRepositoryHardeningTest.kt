@@ -19,6 +19,8 @@ import com.miaclean.app.domain.ScanProgress
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.coEvery
+import io.mockk.mockkStatic
+import org.junit.Before
 import java.io.FileNotFoundException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
@@ -28,6 +30,12 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ScanRepositoryHardeningTest {
+
+    @Before
+    fun setUp() {
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } returns mockk(relaxed = true)
+    }
 
     private val mediaStoreScanner = mockk<MediaStoreScanner>()
     private val safScanner = mockk<SafWhatsAppScanner>()
@@ -127,7 +135,7 @@ class ScanRepositoryHardeningTest {
     private fun stubHappyPath(item: MediaItem) {
         every { mediaStoreScanner.scanAll() } returns listOf(item)
         every { safScanner.scan(any()) } returns emptyList()
-        coEvery { dao.findByMediaId(item.id) } returns null
+        coEvery { dao.findAllMediaIds() } returns emptyList()
         every { md5Hasher.hash(any()) } returns "md5-${item.id}"
         every { perceptualHasher.hash(any()) } returns "phash-${item.id}"
         every { imageEmbedder.embed(any()) } returns null
@@ -146,7 +154,7 @@ class ScanRepositoryHardeningTest {
 
     private fun mediaItem() = MediaItem(
         id = 42L,
-        uri = Uri.parse("content://media/external/images/media/42").toString(),
+        uri = "content://media/external/images/media/42",
         displayName = "IMG_0042.jpg",
         mimeType = "image/jpeg",
         sizeBytes = 1024L,
