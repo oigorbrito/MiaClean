@@ -131,6 +131,11 @@
     <string name="widget_scan_again">Escanear novamente</string>
     <string name="widget_reclaimable">~%1$s recuperáveis</string>
 
+    <!-- Scan errors -->
+    <string name="scan_error_permission_revoked">A permissão de mídia foi revogada. Conceda acesso e tente novamente.</string>
+    <string name="scan_error_media_unavailable">Os arquivos de mídia estão indisponíveis no momento. Verifique se o cartão SD está montado.</string>
+    <string name="scan_error_unexpected">Ocorreu um erro inesperado durante a verificação.</string>
+
     <!-- Classification errors -->
     <string name="classifier_error_image_invalid">O arquivo de imagem parece estar corrompido ou é inválido.</string>
     <string name="classifier_error_timeout">A análise demorou muito. Por favor, tente novamente.</string>

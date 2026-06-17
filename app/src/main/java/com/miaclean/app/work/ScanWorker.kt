@@ -49,7 +49,7 @@ class ScanWorker @AssistedInject constructor(
                 maybeNotifyDelta(groups)
                 Result.success()
             }
-            is ScanProgress.Failed -> Result.failure()
+            is ScanProgress.Failed -> scanFailureResult(final.reasonResId)
             else -> Result.success()
         }
     }
@@ -133,7 +133,12 @@ class ScanWorker @AssistedInject constructor(
         }
     }
 
-    private companion object {
+    internal companion object {
         const val SCAN_NOTIFICATION_ID = 1001
+
+        fun scanFailureResult(reasonResId: Int): Result = when (reasonResId) {
+            R.string.scan_error_unexpected -> Result.retry()
+            else -> Result.failure()
+        }
     }
 }
