@@ -56,6 +56,15 @@ export interface VerifyPurchaseDeps {
 const CACHE_TTL_MILLIS = 24 * 60 * 60 * 1000;
 
 /**
+ * Security limits to prevent resource exhaustion and large-payload attacks.
+ * Values are chosen to be well above legitimate app usage but small enough to be safe.
+ */
+const MAX_PACKAGE_NAME_LENGTH = 128;
+const MAX_PURCHASES_PER_REQUEST = 50;
+const MAX_PURCHASE_TOKEN_LENGTH = 2048;
+const MAX_PRODUCT_ID_LENGTH = 128;
+
+/**
  * Top-level entry point bound by `index.ts`. Returns a handler shaped like a Firebase v2 HTTPS
  * onRequest function so it can be wrapped in `onRequest({ ...opts }, handler)`.
  */
@@ -251,17 +260,28 @@ function parseRequestBody(raw: unknown): VerifyPurchaseRequest | null {
   const packageName = typeof obj.packageName === "string" ? obj.packageName : null;
   const localIsPro = typeof obj.localIsPro === "boolean" ? obj.localIsPro : false;
   const purchasesRaw = Array.isArray(obj.purchases) ? obj.purchases : null;
-  if (packageName === null || purchasesRaw === null) return null;
+
+  if (packageName === null || packageName.length > MAX_PACKAGE_NAME_LENGTH) return null;
+  if (purchasesRaw === null || purchasesRaw.length > MAX_PURCHASES_PER_REQUEST) return null;
 
   const purchases: VerifyPurchaseEntry[] = [];
   for (const entry of purchasesRaw) {
     if (typeof entry !== "object" || entry === null) continue;
     const e = entry as Record<string, unknown>;
     const purchaseToken = typeof e.purchaseToken === "string" ? e.purchaseToken : null;
+
+    if (purchaseToken === null || purchaseToken.length > MAX_PURCHASE_TOKEN_LENGTH) {
+      continue;
+    }
+
     const products = Array.isArray(e.products)
-      ? (e.products.filter((p) => typeof p === "string") as string[])
+      ? (e.products.filter(
+          (p) => typeof p === "string" && p.length <= MAX_PRODUCT_ID_LENGTH,
+        ) as string[])
       : [];
-    if (purchaseToken === null || products.length === 0) continue;
+
+    if (products.length === 0) continue;
+
     purchases.push({
       purchaseToken,
       orderId: typeof e.orderId === "string" ? e.orderId : null,

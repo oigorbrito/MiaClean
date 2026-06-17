@@ -326,4 +326,99 @@ describe("verifyPurchase HTTP handler", () => {
     await handler(req as any, res as any);
     expect((res.body as VerifyPurchaseResponse).isPro).toBe(true);
   });
+
+  describe("security limits", () => {
+    it("rejects overly long packageName", async () => {
+      const handler = makeVerifyPurchaseHandler({
+        config: readRuntimeConfig(),
+        playApi: fakePlayApi(),
+        cache: createInMemoryCache(),
+        now: () => NOW,
+      });
+      const req = fakeRequest({
+        packageName: "a".repeat(129),
+        localIsPro: false,
+        purchases: [],
+      });
+      const res = fakeResponse();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await handler(req as any, res as any);
+      expect(res.statusCode).toBe(400);
+    });
+
+    it("rejects too many purchases in one request", async () => {
+      const handler = makeVerifyPurchaseHandler({
+        config: readRuntimeConfig(),
+        playApi: fakePlayApi(),
+        cache: createInMemoryCache(),
+        now: () => NOW,
+      });
+      const req = fakeRequest({
+        packageName: "com.miaclean.app",
+        localIsPro: false,
+        purchases: Array(51).fill({
+          purchaseToken: "t",
+          products: ["p"],
+        }),
+      });
+      const res = fakeResponse();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await handler(req as any, res as any);
+      expect(res.statusCode).toBe(400);
+    });
+
+    it("skips purchases with overly long tokens", async () => {
+      const handler = makeVerifyPurchaseHandler({
+        config: readRuntimeConfig(),
+        playApi: fakePlayApi(),
+        cache: createInMemoryCache(),
+        now: () => NOW,
+      });
+      const req = fakeRequest({
+        packageName: "com.miaclean.app",
+        localIsPro: false,
+        purchases: [
+          {
+            purchaseToken: "a".repeat(2049),
+            products: ["pro_monthly"],
+          },
+          {
+            purchaseToken: "valid-token",
+            products: ["pro_monthly"],
+          },
+        ],
+      });
+      const res = fakeResponse();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await handler(req as any, res as any);
+      // The first purchase is skipped, the second is processed (and fails because Play API returns null in fake)
+      expect(res.statusCode).toBe(200);
+      expect((res.body as VerifyPurchaseResponse).isPro).toBe(false);
+    });
+
+    it("filters out overly long product IDs", async () => {
+      const handler = makeVerifyPurchaseHandler({
+        config: readRuntimeConfig(),
+        playApi: fakePlayApi(),
+        cache: createInMemoryCache(),
+        now: () => NOW,
+      });
+      const req = fakeRequest({
+        packageName: "com.miaclean.app",
+        localIsPro: false,
+        purchases: [
+          {
+            purchaseToken: "valid-token",
+            products: ["a".repeat(129)],
+          },
+        ],
+      });
+      const res = fakeResponse();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await handler(req as any, res as any);
+      // Products list becomes empty -> purchase is skipped -> no-purchases
+      expect(res.statusCode).toBe(200);
+      expect((res.body as VerifyPurchaseResponse).reason).toBe("no-purchases");
+    });
+  });
 });
