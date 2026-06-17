@@ -138,4 +138,11 @@
     <string name="classifier_error_service_unavailable">El servicio de clasificación no está disponible temporalmente.</string>
     <string name="classifier_error_empty_response">No se pudo categorizar la imagen.</string>
     <string name="classifier_error_unexpected">Ocurrió un error inesperado durante la clasificación.</string>
+
+    <!-- Scan errors -->
+    <string name="scan_error_unexpected">Ocurrió un error inesperado durante el escaneo.</string>
+    <string name="scan_error_permission_revoked">Se revocó el permiso de acceso a los archivos.</string>
+    <string name="scan_error_media_unavailable">Algunos archivos ya no están disponibles.</string>
+
+    <string name="results_item_selected">Seleccionado</string>
 </resources>

@@ -19,6 +19,10 @@ import com.miaclean.app.domain.ScanProgress
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.coEvery
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
+import org.junit.After
+import org.junit.Before
 import java.io.FileNotFoundException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
@@ -28,6 +32,17 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ScanRepositoryHardeningTest {
+
+    @Before
+    fun setup() {
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } returns mockk(relaxed = true)
+    }
+
+    @After
+    fun tearDown() {
+        unmockkStatic(Uri::class)
+    }
 
     private val mediaStoreScanner = mockk<MediaStoreScanner>()
     private val safScanner = mockk<SafWhatsAppScanner>()

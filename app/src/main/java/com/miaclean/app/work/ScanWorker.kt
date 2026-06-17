@@ -36,8 +36,8 @@ class ScanWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         setForeground(createForegroundInfo())
         val safUris = userSettings.currentSafTreeUris().toList()
-        val final = scanRepository.scan(additionalSafTreeUris = safUris).last()
-        return when (final) {
+        val finalState = scanRepository.scan(additionalSafTreeUris = safUris).last()
+        return when (finalState) {
             is ScanProgress.Done -> {
                 // Load once and share between the notifier and the widget-summary update:
                 // both need the same `DuplicateGroup` list with identical semantics for the
@@ -49,7 +49,7 @@ class ScanWorker @AssistedInject constructor(
                 maybeNotifyDelta(groups)
                 Result.success()
             }
-            is ScanProgress.Failed -> Result.failure()
+            is ScanProgress.Failed -> scanFailureResult(finalState.reasonResId)
             else -> Result.success()
         }
     }
@@ -133,7 +133,14 @@ class ScanWorker @AssistedInject constructor(
         }
     }
 
-    private companion object {
+    internal companion object {
         const val SCAN_NOTIFICATION_ID = 1001
+
+        fun scanFailureResult(reasonResId: Int): Result {
+            return when (reasonResId) {
+                R.string.scan_error_unexpected -> Result.retry()
+                else -> Result.failure()
+            }
+        }
     }
 }
