@@ -6,6 +6,10 @@ class Logger {
   private redact(data: any): any {
     if (typeof data !== 'object' || data === null) return data;
 
+    if (Array.isArray(data)) {
+      return data.map(item => this.redact(item));
+    }
+
     const redacted = { ...data };
     for (const key of Object.keys(redacted)) {
       if (this.sensitiveKeys.includes(key)) {

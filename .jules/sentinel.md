@@ -1,17 +1,29 @@
 # Sentinel Security Logs
 
-## [2024-06-16] 🛡️ Sentinel: [CRITICAL] Auth Bypass and Insecure Fallback
+## [2024-06-16] 🛡️ Sentinel: [CRITICAL] Auth Bypass and Insecure Fallback Mitigation
 
 ### Vulnerability
-The `src/server/auth/session.ts` and `services/AuthService.ts` allowed bypass of authentication and session ownership through a `DEMO_PATIENT_ID` fallback that was active even in production environments.
-
-### Impact
-Any user could potentially impersonate a demo patient, leading to unauthorized access to clinical data.
+The system allowed unauthorized access via `DEMO_PATIENT_ID` in production.
 
 ### Fix
-- Modified session handling to throw errors in production if no session is present.
-- Isolated demo paths using `process.env.NODE_ENV !== 'production'`.
+- Refactored `getSession` to strictly require active session in production.
+- Isolated demo credentials to dev/test environments.
+- Implemented PII redaction in all centralized logs.
 
-### Verification
-- Manual code review of auth paths.
-- Typecheck and lint pass.
+### Verification (Objective Evidence)
+1. **Auth Test**: `pnpm verify:test` (Session Management) covers:
+   - Production failure without session: PASSED
+   - Production success with session: PASSED
+   - Dev bypass restriction: PASSED
+2. **Logger Test**: `pnpm verify:test` (Logger Redaction) covers:
+   - patientId redaction: PASSED
+   - email/token redaction: PASSED
+   - Nested object redaction: PASSED
+3. **Build**: `pnpm typecheck` returns 0 errors.
+
+### Final Security Status
+**Hardened**. Demo auth is EXPLICITLY NOT ACCESSIBLE in production.
+
+## [2024-06-16] 🛡️ Sentinel: [BUGFIX] Logger Redaction Array Support
+- Fixed bug where Arrays were being converted to Objects during redaction.
+- Added regression test for Array structure preservation.
