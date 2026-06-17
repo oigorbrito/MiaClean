@@ -6,7 +6,7 @@ import com.miaclean.app.domain.MediaItem
 /**
  * Heuristic classifier that maps a [MediaItem]'s metadata onto a coarse [MediaCategory].
  *
- * This is intentionally a cheap, metadata-only classifier - no bitmap decoding, no ML, no EXIF
+ * This is intentionally a cheap, metadata-only classifier — no bitmap decoding, no ML, no EXIF
  * parsing yet. It's accurate enough to power the "Screenshots" and "Memes" filters on the Results
  * screen, where false positives/negatives are cosmetic rather than destructive.
  *
@@ -38,7 +38,7 @@ class MediaClassifier {
     /**
      * WhatsApp images received from contacts are usually re-encoded small JPEGs (<500 KB) with
      * names that follow the `IMG-YYYYMMDD-WAXXXX.jpg` pattern. Sent items land in `Sent/` and
-     * aren't counted as memes here - users rarely send memes from their own camera.
+     * aren't counted as memes here — users rarely send memes from their own camera.
      */
     private fun isMeme(item: MediaItem, path: String, name: String): Boolean {
         if (!item.isFromWhatsApp) return false
@@ -54,7 +54,7 @@ class MediaClassifier {
 
     /**
      * Without EXIF/face detection we can only recognise the handful of vendor filenames that
-     * mark a shot as front-facing. This list is short and will misclassify - worth revisiting
+     * mark a shot as front-facing. This list is short and will misclassify — worth revisiting
      * once we wire a lightweight EXIF read or the MediaPipe Face Detector from the scan pipeline.
      */
     private fun isSelfie(path: String, name: String): Boolean {
@@ -133,15 +133,14 @@ class MediaClassifier {
         private val DOCUMENT_EXACT_MIME_TYPES = setOf(
             "application/pdf",
             "application/msword",
-            "application/vnd.ms-excel",
-            "application/vnd.ms-powerpoint",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "application/rtf",
+            "application/epub+zip",
         )
 
         private val DOCUMENT_MIME_PREFIXES = listOf(
-            "application/rtf",
+            "text/",
+            "application/vnd.openxmlformats-officedocument",
+            "application/vnd.ms-",
             "application/vnd.oasis.opendocument",
         )
 

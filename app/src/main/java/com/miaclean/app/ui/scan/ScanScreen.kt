@@ -79,9 +79,9 @@ private fun ScanContent(
                     text = stringResource(R.string.scan_done, state.duplicates, state.groups),
                     style = MaterialTheme.typography.bodyLarge,
                 )
-                state.classificationErrorResId?.let { errorResId ->
+                state.classificationErrorCode?.let { errorCode ->
                     Text(
-                        text = stringResource(errorResId),
+                        text = stringResource(ClassifierErrorMapper.mapToFriendlyMessage(errorCode)),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -90,10 +90,12 @@ private fun ScanContent(
             }
 
             is ScanProgress.Failed -> {
-                Text(text = state.reason, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = stringResource(ClassifierErrorMapper.mapToFriendlyMessage(state.errorCode)),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
                 OutlinedButton(onClick = onStart) { Text(stringResource(R.string.scan_start)) }
             }
         }
     }
 }
-

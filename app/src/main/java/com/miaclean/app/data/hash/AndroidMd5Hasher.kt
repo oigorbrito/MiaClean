@@ -13,11 +13,11 @@ import javax.inject.Singleton
  * so two JPEGs with identical bytes will always collide.
  */
 @Singleton
-class Md5Hasher @Inject constructor(
+class AndroidMd5Hasher @Inject constructor(
     @ApplicationContext private val context: Context,
-) {
-    fun hash(uri: Uri): String? {
-        return context.contentResolver.openInputStream(uri)?.use(::hashStream)
+) : Md5Hasher {
+    override suspend fun hash(uri: String): String? {
+        return context.contentResolver.openInputStream(Uri.parse(uri))?.use(::hashStream)
     }
 
     private fun hashStream(input: InputStream): String {

@@ -1,28 +1,28 @@
 package com.miaclean.app.work
 
-import com.miaclean.app.R
+import com.miaclean.app.domain.ScanErrorCode
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ScanWorkerTest {
 
     @Test
-    fun `unexpected scan failure maps to retry`() {
+    fun unexpected_scan_failure_maps_to_retry() {
         assertEquals(
             androidx.work.ListenableWorker.Result.retry().javaClass,
-            scanFailureResult(R.string.scan_error_unexpected).javaClass,
+            scanFailureResult(ScanErrorCode.UNEXPECTED).javaClass,
         )
     }
 
     @Test
-    fun `permission or io failure maps to failure`() {
+    fun permission_or_io_failure_maps_to_failure() {
         assertEquals(
             androidx.work.ListenableWorker.Result.failure().javaClass,
-            scanFailureResult(R.string.scan_error_permission_revoked).javaClass,
+            scanFailureResult(ScanErrorCode.PERMISSION_REVOKED).javaClass,
         )
         assertEquals(
             androidx.work.ListenableWorker.Result.failure().javaClass,
-            scanFailureResult(R.string.scan_error_media_unavailable).javaClass,
+            scanFailureResult(ScanErrorCode.MEDIA_UNAVAILABLE).javaClass,
         )
     }
 }

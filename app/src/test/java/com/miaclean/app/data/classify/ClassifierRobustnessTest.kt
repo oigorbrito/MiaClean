@@ -1,6 +1,7 @@
 package com.miaclean.app.data.classify
 
 import com.miaclean.app.R
+import com.miaclean.app.domain.ScanErrorCode
 import com.miaclean.app.ui.scan.ClassifierErrorMapper
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -8,40 +9,34 @@ import org.junit.Test
 class ClassifierRobustnessTest {
 
     @Test
-    fun `mapToFriendlyMessage returns correct string resource for each ErrorCategory`() {
+    fun mapToFriendlyMessage_returns_correct_string_resource_for_each_ScanErrorCode() {
         assertEquals(
-            R.string.classifier_error_image_invalid,
-            ClassifierErrorMapper.mapToFriendlyMessage(ErrorCategory.IMAGE_INVALID)
+            R.string.scan_error_permission_revoked,
+            ClassifierErrorMapper.mapToFriendlyMessage(ScanErrorCode.PERMISSION_REVOKED)
         )
         assertEquals(
-            R.string.classifier_error_timeout,
-            ClassifierErrorMapper.mapToFriendlyMessage(ErrorCategory.TIMEOUT)
+            R.string.scan_error_media_unavailable,
+            ClassifierErrorMapper.mapToFriendlyMessage(ScanErrorCode.MEDIA_UNAVAILABLE)
         )
         assertEquals(
-            R.string.classifier_error_network,
-            ClassifierErrorMapper.mapToFriendlyMessage(ErrorCategory.NETWORK_ERROR)
-        )
-        assertEquals(
-            R.string.classifier_error_empty_response,
-            ClassifierErrorMapper.mapToFriendlyMessage(ErrorCategory.EMPTY_RESPONSE)
+            R.string.scan_error_classification,
+            ClassifierErrorMapper.mapToFriendlyMessage(ScanErrorCode.CLASSIFICATION_ISSUE)
         )
         assertEquals(
             R.string.classifier_error_unexpected,
-            ClassifierErrorMapper.mapToFriendlyMessage(ErrorCategory.UNEXPECTED)
+            ClassifierErrorMapper.mapToFriendlyMessage(ScanErrorCode.UNEXPECTED)
         )
     }
 
     @Test
-    fun `ErrorCategory enum has expected values`() {
+    fun ScanErrorCode_enum_has_expected_values() {
         val expected = listOf(
-            "IMAGE_INVALID",
-            "EMPTY_RESPONSE",
-            "TIMEOUT",
-            "NETWORK_ERROR",
-            "SERVICE_UNAVAILABLE",
+            "PERMISSION_REVOKED",
+            "MEDIA_UNAVAILABLE",
+            "CLASSIFICATION_ISSUE",
             "UNEXPECTED"
         )
-        val actual = ErrorCategory.entries.map { it.name }
+        val actual = ScanErrorCode.entries.map { it.name }
         assertEquals(expected, actual)
     }
 }

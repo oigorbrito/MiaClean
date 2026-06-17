@@ -17,16 +17,17 @@ import javax.inject.Singleton
  * stream the bitmap through a small temporary file under the app cache.
  */
 @Singleton
-class PerceptualHasher @Inject constructor(
+class AndroidPerceptualHasher @Inject constructor(
     @ApplicationContext private val context: Context,
-) {
+) : PerceptualHasher {
     private val phash by lazy { pHashCalc() }
 
-    fun hash(uri: Uri): String? {
+    override suspend fun hash(uri: String): String? {
+        val contentUri = Uri.parse(uri)
         val cacheDir = File(context.cacheDir, "phash").apply { mkdirs() }
         val tmp = File.createTempFile("phash_", ".jpg", cacheDir)
         return try {
-            context.contentResolver.openInputStream(uri)?.use { input ->
+            context.contentResolver.openInputStream(contentUri)?.use { input ->
                 val bitmap = BitmapFactory.decodeStream(input) ?: return null
                 tmp.outputStream().use { out ->
                     bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
@@ -46,7 +47,7 @@ class PerceptualHasher @Inject constructor(
     }
 
     /** Returns `true` when [left] and [right] are similar enough to be considered duplicates. */
-    fun isSimilar(left: String, right: String, threshold: Int = DEFAULT_THRESHOLD): Boolean {
+    override fun isSimilar(left: String, right: String, threshold: Int): Boolean {
         if (left.length != right.length) return false
         var distance = 0
         for (i in left.indices) {
@@ -58,6 +59,5 @@ class PerceptualHasher @Inject constructor(
 
     private companion object {
         const val JPEG_QUALITY = 85
-        const val DEFAULT_THRESHOLD = 5 // bits
     }
 }
