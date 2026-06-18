@@ -253,6 +253,10 @@ function parseRequestBody(raw: unknown): VerifyPurchaseRequest | null {
   const purchasesRaw = Array.isArray(obj.purchases) ? obj.purchases : null;
   if (packageName === null || purchasesRaw === null) return null;
 
+  // Security: enforce input length limits to prevent DoS via large payloads.
+  if (packageName.length > 128) return null;
+  if (purchasesRaw.length > 50) return null;
+
   const purchases: VerifyPurchaseEntry[] = [];
   for (const entry of purchasesRaw) {
     if (typeof entry !== "object" || entry === null) continue;
@@ -262,6 +266,11 @@ function parseRequestBody(raw: unknown): VerifyPurchaseRequest | null {
       ? (e.products.filter((p) => typeof p === "string") as string[])
       : [];
     if (purchaseToken === null || products.length === 0) continue;
+
+    // Security: enforce length limits on purchase tokens and product IDs.
+    if (purchaseToken.length > 2048) return null;
+    if (products.some((p) => p.length > 128)) return null;
+
     purchases.push({
       purchaseToken,
       orderId: typeof e.orderId === "string" ? e.orderId : null,
