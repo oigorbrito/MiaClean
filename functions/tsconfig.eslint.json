@@ -4,6 +4,6 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "include": ["src/**/*.ts", "src/**/*.test.ts", "src/__tests__/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.test.ts", "src/__tests__/**/*.ts", "jest.config.js", ".eslintrc.cjs"],
   "exclude": ["node_modules", "lib"]
 }
