@@ -52,6 +52,7 @@
     <string name="results_delete_undo_action">Undo</string>
     <string name="results_empty_filtered">No duplicates in this category.</string>
     <string name="results_filter_all">All</string>
+    <string name="results_item_selected">Selected</string>
     <string name="category_screenshot">Screenshots</string>
     <string name="category_selfie">Selfies</string>
     <string name="category_meme">Memes</string>

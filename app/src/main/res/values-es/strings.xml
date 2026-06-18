@@ -52,6 +52,7 @@
     <string name="results_delete_undo_action">Deshacer</string>
     <string name="results_empty_filtered">No hay duplicados en esta categoría.</string>
     <string name="results_filter_all">Todo</string>
+    <string name="results_item_selected">Seleccionado</string>
     <string name="category_screenshot">Capturas</string>
     <string name="category_selfie">Selfies</string>
     <string name="category_meme">Memes</string>

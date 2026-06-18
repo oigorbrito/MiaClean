@@ -1,0 +1,3 @@
+## 2025-05-15 - [MediaThumbnail selection UX]
+**Learning:** Adding a subtle scale-down animation (0.92f) and haptic feedback to item selection provides immediate and satisfying tactile confirmation of user actions, which is especially important in lists with multi-selection. Using `stateDescription` in `Modifier.semantics` ensures screen readers announce the current state (e.g., "Selected") rather than just "Selected checkbox" or similar generic terms.
+**Action:** Always combine visual (graphicsLayer), tactile (haptics), and auditory (semantics) feedback when implementing selection states to ensure a delightful and accessible experience.
