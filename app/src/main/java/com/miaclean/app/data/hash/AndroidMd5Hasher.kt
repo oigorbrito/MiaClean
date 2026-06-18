@@ -1,4 +1,5 @@
 package com.miaclean.app.data.hash
+import com.miaclean.app.data.hash.Md5Hasher
 
 import android.content.Context
 import android.net.Uri

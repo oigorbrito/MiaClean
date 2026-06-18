@@ -1,4 +1,5 @@
 package com.miaclean.app.data.hash
+import com.miaclean.app.data.hash.PerceptualHasher
 
 import android.content.Context
 import android.graphics.Bitmap

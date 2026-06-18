@@ -138,9 +138,7 @@
     <string name="classifier_error_service_unavailable">O serviço de classificação está temporariamente indisponível.</string>
     <string name="classifier_error_empty_response">A imagem não pôde ser categorizada.</string>
     <string name="classifier_error_unexpected">Ocorreu um erro inesperado durante a classificação.</string>
-
-    <!-- Scan errors -->
-    <string name="scan_error_permission_revoked">As permissões de mídia foram revogadas. Conceda-as nas Configurações para escanear novamente.</string>
-    <string name="scan_error_media_unavailable">O armazenamento de mídia está temporariamente indisponível. Verifique se o dispositivo está conectado a um PC ou se os arquivos foram removidos.</string>
-    <string name="scan_error_classification">Alguns itens eram muito complexos para categorizar, mas ainda foram escaneados em busca de duplicatas.</string>
+    <string name="scan_error_unexpected">Unexpected error during scan</string>
+    <string name="scan_error_permission_revoked">Storage permission revoked</string>
+    <string name="scan_error_media_unavailable">Media store unavailable</string>
 </resources>

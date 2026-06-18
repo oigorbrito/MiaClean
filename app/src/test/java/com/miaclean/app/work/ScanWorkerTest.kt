@@ -7,22 +7,22 @@ import org.junit.Test
 class ScanWorkerTest {
 
     @Test
-    fun unexpected_scan_failure_maps_to_retry() {
+    fun `unexpected scan failure maps to retry`() {
         assertEquals(
             androidx.work.ListenableWorker.Result.retry().javaClass,
-            scanFailureResult(ScanErrorCode.UNEXPECTED).javaClass,
+            ScanErrorCode.UNEXPECTED.toWorkerResult().javaClass,
         )
     }
 
     @Test
-    fun permission_or_io_failure_maps_to_failure() {
+    fun `permission or io failure maps to failure`() {
         assertEquals(
             androidx.work.ListenableWorker.Result.failure().javaClass,
-            scanFailureResult(ScanErrorCode.PERMISSION_REVOKED).javaClass,
+            ScanErrorCode.PERMISSION_REVOKED.toWorkerResult().javaClass,
         )
         assertEquals(
             androidx.work.ListenableWorker.Result.failure().javaClass,
-            scanFailureResult(ScanErrorCode.MEDIA_UNAVAILABLE).javaClass,
+            ScanErrorCode.MEDIA_UNAVAILABLE.toWorkerResult().javaClass,
         )
     }
 }

@@ -18,20 +18,15 @@ import com.miaclean.app.domain.MediaCategory
 import com.miaclean.app.domain.MediaItem
 import com.miaclean.app.domain.ScanErrorCode
 import com.miaclean.app.domain.ScanProgress
+import com.miaclean.app.ui.scan.ClassifierErrorMapper
+import java.io.FileNotFoundException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.withContext
-import java.io.FileNotFoundException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Orchestrates the full scan pipeline: enumerate → hash (MD5 + pHash) → persist → group.
- *
- * The repository is intentionally a single file so the feature boundary is easy to follow. Split it
- * once any stage grows beyond a few dozen lines.
- */
 @Singleton
 class ScanRepository @Inject constructor(
     private val mediaStoreScanner: MediaStoreScanner,
@@ -45,6 +40,8 @@ class ScanRepository @Inject constructor(
     private val logger: ClassifierEventLogger,
     private val dao: MediaHashDao,
 ) {
+
+    suspend fun loadGroups(): List<DuplicateGroup> = withContext(Dispatchers.IO) { buildGroups() }
 
     fun scan(additionalSafTreeUris: List<Uri> = emptyList()): Flow<ScanProgress> = channelFlow {
         try {
@@ -67,9 +64,9 @@ class ScanRepository @Inject constructor(
                     val cached = dao.findByMediaId(item.id)
                     if (cached == null) {
                         val uri = Uri.parse(item.uri)
-                        val md5 = md5Hasher.hash(item.uri)
+                        val md5 = md5Hasher.hash(uri.toString())
                         val phash = if (item.mimeType.startsWith("image/")) {
-                            perceptualHasher.hash(item.uri)
+                            perceptualHasher.hash(uri.toString())
                         } else {
                             null
                         }
@@ -80,14 +77,12 @@ class ScanRepository @Inject constructor(
                         }
                         if (md5 != null) {
                             val category = try {
-                                resolveCategory(item, uri) {
+                                resolveCategory(item, uri) { error ->
                                     if (firstClassifierErrorCode == null) {
                                         firstClassifierErrorCode = ScanErrorCode.CLASSIFICATION_ISSUE
                                     }
                                 }
                             } catch (e: Exception) {
-                                // If resolveCategory throws (shouldn't, but defense in depth),
-                                // record as unexpected error and fall back to Photo.
                                 if (firstClassifierErrorCode == null) {
                                     firstClassifierErrorCode = ScanErrorCode.UNEXPECTED
                                 }
@@ -109,11 +104,13 @@ class ScanRepository @Inject constructor(
 
             val groups = buildGroups()
             val duplicates = groups.sumOf { it.items.size }
-            send(ScanProgress.Done(
-                duplicates = duplicates,
-                groups = groups.size,
-                classificationErrorCode = firstClassifierErrorCode
-            ))
+            send(
+                ScanProgress.Done(
+                    duplicates = duplicates,
+                    groups = groups.size,
+                    classificationErrorCode = firstClassifierErrorCode,
+                ),
+            )
         } catch (e: SecurityException) {
             send(ScanProgress.Failed(ScanErrorCode.PERMISSION_REVOKED))
         } catch (e: FileNotFoundException) {
@@ -123,21 +120,6 @@ class ScanRepository @Inject constructor(
         }
     }
 
-    suspend fun loadGroups(): List<DuplicateGroup> = withContext(Dispatchers.IO) { buildGroups() }
-
-    /**
-     * Classifies [item] using the cheap metadata-only [MediaClassifier] first, then promotes a
-     * `Photo` via ML signals. The pipeline is ordered from cheapest → most expensive:
-     *
-     *  1. [MediaClassifier] (path/MIME only) — filters out Screenshot/Video/Document/
-     *     metadata-selfie/metadata-meme. Only survivors ranked as `Photo` continue.
-     *  2. [SelfieDetector] (EXIF + MediaPipe Face Detector) — promotes to `Selfie`.
-     *  3. [MemeDetector] (ML Kit Text Recognition) — promotes to `Meme`.
-     *
-     * Meme runs *after* selfie because (a) path-heuristic memes are already caught by step 1
-     * and (b) a photo with a face AND caption text is far more often a selfie with a filter
-     * watermark than a meme.
-     */
     private suspend fun resolveCategory(
         item: MediaItem,
         uri: Uri,

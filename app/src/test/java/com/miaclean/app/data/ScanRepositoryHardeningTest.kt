@@ -1,7 +1,7 @@
 package com.miaclean.app.data
 
+import android.net.Uri
 import com.miaclean.app.data.classify.ClassifierEventLogger
-import com.miaclean.app.data.classify.ErrorCategory
 import com.miaclean.app.data.classify.MediaClassifier
 import com.miaclean.app.data.classify.MemeDetector
 import com.miaclean.app.data.classify.SelfieDetector
@@ -19,14 +19,13 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
-import android.net.Uri
+import java.io.FileNotFoundException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
-import java.io.FileNotFoundException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ScanRepositoryHardeningTest {
@@ -49,8 +48,8 @@ class ScanRepositoryHardeningTest {
     }
 
     @Test
-    fun permission_revoked_during_scan_emits_retryable_failure() = runTest {
-        coEvery { mediaStoreScanner.scanAll() } throws SecurityException("permission revoked")
+    fun `permission revoked during scan emits failure`() = runTest {
+        every { mediaStoreScanner.scanAll() } throws SecurityException("permission revoked")
         every { safScanner.scan(any()) } returns emptyList()
 
         val emissions = repository().scan().toList()
@@ -65,7 +64,7 @@ class ScanRepositoryHardeningTest {
     }
 
     @Test
-    fun inaccessible_media_emits_retryable_failure() = runTest {
+    fun `inaccessible media emits failure`() = runTest {
         val item = mediaItem()
         stubHappyPath(item)
         coEvery { md5Hasher.hash(any()) } throws FileNotFoundException("gone")
@@ -82,10 +81,10 @@ class ScanRepositoryHardeningTest {
     }
 
     @Test
-    fun unexpected_pipeline_exception_emits_unexpected_failure() = runTest {
+    fun `unexpected pipeline exception emits failure`() = runTest {
         val item = mediaItem()
         stubHappyPath(item)
-        coEveryUpsertCrash()
+        coEvery { dao.upsert(any()) } throws IllegalStateException("db crashed")
 
         val emissions = repository().scan().toList()
 
@@ -99,7 +98,7 @@ class ScanRepositoryHardeningTest {
     }
 
     @Test
-    fun classification_failure_is_downgraded_to_warning_and_scan_completes() = runTest {
+    fun `classification failure is downgraded to warning`() = runTest {
         val item = mediaItem()
         stubHappyPath(item)
         every { classifier.classify(item) } throws IllegalStateException("classifier blew up")
@@ -133,7 +132,7 @@ class ScanRepositoryHardeningTest {
     )
 
     private fun stubHappyPath(item: MediaItem) {
-        coEvery { mediaStoreScanner.scanAll() } returns listOf(item)
+        every { mediaStoreScanner.scanAll() } returns listOf(item)
         every { safScanner.scan(any()) } returns emptyList()
         coEvery { dao.findByMediaId(item.id) } returns null
         coEvery { md5Hasher.hash(any()) } returns "md5-${item.id}"
@@ -146,10 +145,6 @@ class ScanRepositoryHardeningTest {
         coEvery { dao.findExactDuplicates() } returns emptyList()
         coEvery { dao.findAllWithPHash() } returns emptyList()
         coEvery { dao.findAllWithEmbedding() } returns emptyList()
-    }
-
-    private fun coEveryUpsertCrash() {
-        coEvery { dao.upsert(any()) } throws IllegalStateException("db crashed")
     }
 
     private fun mediaItem() = MediaItem(

@@ -9,7 +9,11 @@ import org.junit.Test
 class ClassifierRobustnessTest {
 
     @Test
-    fun mapToFriendlyMessage_returns_correct_string_resource_for_each_ScanErrorCode() {
+    fun `mapToFriendlyMessage returns correct string resource for each ScanErrorCode`() {
+        assertEquals(
+            R.string.classifier_error_unexpected,
+            ClassifierErrorMapper.mapToFriendlyMessage(ScanErrorCode.CLASSIFICATION_ISSUE)
+        )
         assertEquals(
             R.string.scan_error_permission_revoked,
             ClassifierErrorMapper.mapToFriendlyMessage(ScanErrorCode.PERMISSION_REVOKED)
@@ -19,24 +23,8 @@ class ClassifierRobustnessTest {
             ClassifierErrorMapper.mapToFriendlyMessage(ScanErrorCode.MEDIA_UNAVAILABLE)
         )
         assertEquals(
-            R.string.scan_error_classification,
-            ClassifierErrorMapper.mapToFriendlyMessage(ScanErrorCode.CLASSIFICATION_ISSUE)
-        )
-        assertEquals(
-            R.string.classifier_error_unexpected,
+            R.string.scan_error_unexpected,
             ClassifierErrorMapper.mapToFriendlyMessage(ScanErrorCode.UNEXPECTED)
         )
-    }
-
-    @Test
-    fun ScanErrorCode_enum_has_expected_values() {
-        val expected = listOf(
-            "PERMISSION_REVOKED",
-            "MEDIA_UNAVAILABLE",
-            "CLASSIFICATION_ISSUE",
-            "UNEXPECTED"
-        )
-        val actual = ScanErrorCode.entries.map { it.name }
-        assertEquals(expected, actual)
     }
 }

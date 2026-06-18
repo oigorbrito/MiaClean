@@ -15,3 +15,8 @@
 ## 2024-05-24: SAF for WhatsApp
 - **Decision**: Use Scoped Storage with a fallback to Storage Access Framework (SAF) for the `Android/media/com.whatsapp/` directory.
 - **Rationale**: Android 11+ restrictions prevent direct MediaStore access to some app-specific media folders.
+
+## 2024-06-18: KMP Migration Phase 1
+- **Decision**: Successfully completed Phase 1 of the migration to Kotlin Multiplatform (KMP). Established a `:shared` module and moved the core domain logic and heuristic classifiers to `commonMain`.
+- **Rationale**: To enable a truly shared codebase between Android and iOS, reducing platform-specific maintenance. The core domain and heuristics are the most portable components and serve as the foundation for the shared architecture.
+- **Scope**: Infra.

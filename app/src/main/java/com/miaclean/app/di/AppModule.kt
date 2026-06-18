@@ -2,13 +2,13 @@ package com.miaclean.app.di
 
 import android.content.Context
 import androidx.room.Room
-import com.miaclean.app.data.classify.MediaClassifier
+import com.miaclean.app.data.db.MediaHashDao
+import com.miaclean.app.data.db.MiaCleanDatabase
 import com.miaclean.app.data.hash.AndroidMd5Hasher
 import com.miaclean.app.data.hash.AndroidPerceptualHasher
 import com.miaclean.app.data.hash.Md5Hasher
 import com.miaclean.app.data.hash.PerceptualHasher
-import com.miaclean.app.data.db.MediaHashDao
-import com.miaclean.app.data.db.MiaCleanDatabase
+import com.miaclean.app.data.classify.MediaClassifier
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -32,13 +32,15 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideMd5Hasher(@ApplicationContext context: Context): Md5Hasher =
+        AndroidMd5Hasher(context)
+
+    @Provides
+    @Singleton
+    fun providePerceptualHasher(@ApplicationContext context: Context): PerceptualHasher =
+        AndroidPerceptualHasher(context)
+
+    @Provides
+    @Singleton
     fun provideMediaClassifier(): MediaClassifier = MediaClassifier()
-
-    @Provides
-    @Singleton
-    fun provideMd5Hasher(hasher: AndroidMd5Hasher): Md5Hasher = hasher
-
-    @Provides
-    @Singleton
-    fun providePerceptualHasher(hasher: AndroidPerceptualHasher): PerceptualHasher = hasher
 }

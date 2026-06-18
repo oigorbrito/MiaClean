@@ -5,25 +5,12 @@ package com.miaclean.app.domain
  * is. The classification is a best-effort heuristic — treat it as a hint, not ground truth.
  */
 enum class MediaCategory {
-    /** Screenshots (system UI, browser captures). Usually the safest category to bulk-delete. */
     Screenshot,
-
-    /** Frontal-camera photos. Detection is metadata-only today; may expand to face detection. */
     Selfie,
-
-    /** Low-resolution/image messages that look like WhatsApp forwards — memes, jokes, images. */
     Meme,
-
-    /** Documents such as PDFs, Office files, and text docs shared via WhatsApp/downloads. */
     Document,
-
-    /** Any other image (camera rolls, downloads, etc.). */
     Photo,
-
-    /** Video (any MIME starting with `video/`). */
     Video,
-
-    /** Fallback when MIME is unknown or not image/video. */
     Other,
 }
 
