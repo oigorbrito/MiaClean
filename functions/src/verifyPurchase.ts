@@ -44,6 +44,8 @@ export interface VerifyPurchaseDeps {
   cache: EntitlementCacheStore;
   /** Wall clock injection point so tests don't need fake timers. */
   now: () => number;
+  /** Injected App Check verification function. */
+  verifyAppCheckToken?: (token: string) => Promise<void>;
 }
 
 /**
@@ -65,11 +67,22 @@ export function makeVerifyPurchaseHandler(deps: VerifyPurchaseDeps) {
       res.status(405).json({ isPro: false, reason: "play-api-error" });
       return;
     }
-    if (deps.config.enforceAppCheck && !req.header("X-Firebase-AppCheck")) {
-      // App Check enabled but no token attached. Reject with 401; the app's retry loop will
-      // give up after the configured attempts and the user falls back to local entitlement.
-      res.status(401).json({ isPro: false, reason: "play-api-error" });
-      return;
+
+    if (deps.config.enforceAppCheck) {
+      const token = req.header("X-Firebase-AppCheck");
+      if (!token) {
+        res.status(401).json({ isPro: false, reason: "play-api-error" });
+        return;
+      }
+      try {
+        if (deps.verifyAppCheckToken) {
+          await deps.verifyAppCheckToken(token);
+        }
+      } catch (err) {
+        console.warn("App Check token verification failed", { err });
+        res.status(401).json({ isPro: false, reason: "play-api-error" });
+        return;
+      }
     }
 
     const body = parseRequestBody(req.body);
@@ -85,6 +98,12 @@ export function makeVerifyPurchaseHandler(deps: VerifyPurchaseDeps) {
 
     if (body.purchases.length === 0) {
       res.status(200).json({ isPro: false, reason: "no-purchases" });
+      return;
+    }
+
+    if (body.purchases.length > 10) {
+      // DoS protection: reject requests with too many purchases.
+      res.status(400).json({ isPro: false, reason: "play-api-error" });
       return;
     }
 

@@ -73,7 +73,7 @@ export function makeRtdnHandler(deps: RtdnDeps) {
     try {
       payload = JSON.parse(json);
     } catch (err) {
-      console.warn("RTDN payload not valid JSON", { json, err });
+      console.warn("RTDN payload not valid JSON", { err });
       return;
     }
 
@@ -101,7 +101,7 @@ export function makeRtdnHandler(deps: RtdnDeps) {
       await handleVoidedPurchase(deps, payload.voidedPurchaseNotification);
       return;
     }
-    console.warn("RTDN payload had no recognised notification kind", { payload });
+    console.warn("RTDN payload had no recognised notification kind");
   };
 }
 
