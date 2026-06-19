@@ -35,6 +35,8 @@
     <string name="results_strategy_phash">Visualmente similares (pHash)</string>
     <string name="results_strategy_semantic">Similaridade semântica (MediaPipe)</string>
     <string name="results_preview_close">Fechar</string>
+    <string name="results_item_selected">Selecionado</string>
+    <string name="results_item_not_selected">Não selecionado</string>
     <string name="results_select_duplicates">Selecionar duplicadas</string>
     <string name="results_clear_selection">Limpar</string>
     <string name="results_selection_summary">%1$d selecionados • %2$s</string>
