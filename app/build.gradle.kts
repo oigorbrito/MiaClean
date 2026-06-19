@@ -23,44 +23,20 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
-
-        // Pin the locales shipped in the APK. English is the base (values/), Portuguese is
-        // region-specific to Brazil (values-pt-rBR/), Spanish uses the generic qualifier so it
-        // resolves for es-ES / es-MX / es-AR / etc. alike (values-es/). Without this filter,
-        // AGP would bundle every locale that any transitive dependency declares (dozens of
-        // Play Services entries) even though our own resources only cover three, inflating the
-        // APK and misleading the device's locale fallback. Keep in sync with
-        // app/src/main/res/values-*/ directories.
         resourceConfigurations += setOf("en", "pt-rBR", "es")
 
-        // Play Billing configuration. These are placeholder SKU ids: the real subscription /
-        // one-time products must be created in Play Console with these exact ids (or the ids
-        // below overridden to match). Until the ids exist on the backend,
-        // `queryProductDetails` returns an empty list and the paywall renders its "billing
-        // unavailable" state — no crash, no purchase flow.
         buildConfigField("String", "BILLING_SKU_MONTHLY", "\"pro_monthly\"")
         buildConfigField("String", "BILLING_SKU_YEARLY", "\"pro_yearly\"")
         buildConfigField("String", "BILLING_SKU_LIFETIME", "\"pro_lifetime\"")
-        // Free-tier monthly delete allowance surfaced by EntitlementEvaluator/Results UI.
         buildConfigField("int", "FREE_DELETES_PER_MONTH", "50")
-        // Base-64 RSA public key from Play Console > Monetize > License testing. Used to verify
-        // purchase signatures client-side. When empty (debug / pre-release builds) signature
-        // verification is skipped with a warning log; callers should NOT rely on verification in
-        // this state. Release builds with an empty key should fail fast at the repository layer
-        // rather than silently trusting unverified purchases.
         buildConfigField("String", "BILLING_PUBLIC_KEY", "\"\"")
-        // Optional backend endpoint for server-side billing entitlement verification.
-        // When blank, the app falls back to local Play Billing-derived entitlement state.
         buildConfigField("String", "BILLING_BACKEND_URL", "\"\"")
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         debug {
             applicationIdSuffix = ".debug"
@@ -74,10 +50,7 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
-        freeCompilerArgs += listOf(
-            "-opt-in=kotlin.RequiresOptIn",
-            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
-        )
+        freeCompilerArgs += listOf("-opt-in=kotlin.RequiresOptIn", "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api")
     }
 
     buildFeatures {
@@ -92,10 +65,6 @@ android {
     }
 
     androidResources {
-        // Android 13+ per-app language picker (Settings > Apps > MIA Clean > Language) reads a
-        // `locales_config.xml` auto-generated from the `values-*/` directories we ship. Now that
-        // three locales are present, flipping this to `true` lets users switch the app's
-        // language independently of the system locale without us hand-maintaining the xml.
         generateLocaleConfig = true
     }
 
@@ -107,6 +76,8 @@ android {
 }
 
 dependencies {
+    implementation(project(":shared"))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -148,15 +119,10 @@ dependencies {
     implementation(libs.mlkit.text.recognition)
 
     implementation(libs.accompanist.permissions)
-
     implementation(libs.androidx.documentfile)
-
     implementation(libs.androidx.exifinterface)
-
     implementation(libs.phashcalc)
-
     implementation(libs.billing.ktx)
-
     implementation(libs.glance.appwidget)
     implementation(libs.glance.material3)
 
@@ -172,60 +138,26 @@ kapt {
     correctErrorTypes = true
 }
 
-// Downloads the MediaPipe Face Detector model into a generated assets directory on first build.
-// The detector no-ops gracefully when the asset is missing (see SelfieDetector), so CI without
-// internet still builds; it just doesn't get face-based selfie detection. Using a dedicated
-// generated directory (registered as an extra `assets.srcDir` on the `main` source set) lets AGP
-// wire the implicit task dependencies for merge/lint on its own.
-val faceModelUrl =
-    "https://storage.googleapis.com/mediapipe-models/face_detector/" +
-        "blaze_face_short_range/float16/1/blaze_face_short_range.tflite"
+val faceModelUrl = "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite"
 val generatedAssetsDir = layout.buildDirectory.dir("generated/mediapipeAssets")
 
 val downloadFaceDetectorModel by tasks.registering {
-    description = "Fetches the blaze_face_short_range.tflite model used by SelfieDetector."
     val outputDir = generatedAssetsDir
     outputs.dir(outputDir)
-    outputs.upToDateWhen {
-        outputDir.get().file("face_detector.tflite").asFile.let { it.exists() && it.length() > 0 }
-    }
     doLast {
         val target = outputDir.get().file("face_detector.tflite").asFile
         if (target.exists() && target.length() > 0) return@doLast
         target.parentFile.mkdirs()
-        // Download to a sibling temp file and atomically rename on success so an interrupted
-        // transfer never leaves a truncated .tflite that the next build would happily treat as
-        // up-to-date.
         val tmp = File(target.parentFile, "face_detector.tflite.part")
-        if (tmp.exists()) tmp.delete()
         try {
-            URI(faceModelUrl).toURL().openStream().use { input ->
-                tmp.outputStream().use { output -> input.copyTo(output) }
-            }
-            if (!tmp.renameTo(target)) {
-                tmp.copyTo(target, overwrite = true)
-                tmp.delete()
-            }
-            logger.lifecycle("Downloaded face_detector.tflite (${target.length() / 1024} KB)")
+            URI(faceModelUrl).toURL().openStream().use { input -> tmp.outputStream().use { output -> input.copyTo(output) } }
+            if (!tmp.renameTo(target)) { tmp.copyTo(target, overwrite = true); tmp.delete() }
         } catch (t: Throwable) {
-            logger.warn(
-                "Could not download MediaPipe face detector model: ${t.message}. " +
-                    "SelfieDetector will skip face-based classification.",
-            )
             if (tmp.exists()) tmp.delete()
             if (target.exists()) target.delete()
         }
     }
 }
 
-android.sourceSets.getByName("main").assets.srcDir(
-    generatedAssetsDir.map { it.asFile }.also { /* keep the provider alive */ },
-)
-
-// Ensure every task that consumes assets waits for the download to run.
-tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }
-    .configureEach { dependsOn(downloadFaceDetectorModel) }
-tasks.matching { it.name.startsWith("generate") && it.name.contains("Lint") }
-    .configureEach { dependsOn(downloadFaceDetectorModel) }
-tasks.matching { it.name.startsWith("package") && it.name.endsWith("Resources") }
-    .configureEach { dependsOn(downloadFaceDetectorModel) }
+android.sourceSets.getByName("main").assets.srcDir(generatedAssetsDir)
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach { dependsOn(downloadFaceDetectorModel) }
