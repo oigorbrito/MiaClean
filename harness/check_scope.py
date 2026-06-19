@@ -113,15 +113,15 @@ def validate_changes(scope, changes, allowed_files, allow_critical):
                 if allow_critical:
                     file_ok = True
                     reason = "Liberado via --allow-critical"
-                elif scope == "infra":
+                elif scope in ["infra", "bugfix"]:
                     file_ok = True
-                    reason = "Permitido em escopo infra"
+                    reason = f"Permitido em escopo {scope}"
                 else:
                     file_ok = False
                     if is_critical:
-                        reason = "Alteração em área crítica fora de infra"
+                        reason = f"Alteração em área crítica fora de infra/bugfix (escopo atual: {scope})"
                     else:
-                        reason = "Deleção sensível fora de infra"
+                        reason = f"Deleção sensível fora de infra/bugfix (escopo atual: {scope})"
 
             # 3. Check scope rules
             elif not is_match_any(path, allowed_patterns):
