@@ -38,7 +38,7 @@ class ScanRepository(private val scanner: MediaScanner, private val md5Hasher: M
     }
     private fun buildPerceptualGroups(rows: List<MediaHash>, offset: Int): List<DuplicateGroup> {
         if (rows.isEmpty()) return emptyList()
-        val hashes = rows.mapNotNull { row -> row.pHash?.let { h -> row to h } }
+        val hashes = rows.mapNotNull { it.pHash?.let { h -> it to h } }
         if (hashes.isEmpty()) return emptyList()
         val ds = IntDisjointSet(hashes.size); val tree = HammingBkTree().apply { hashes.forEachIndexed { i, h -> add(h.second, i) } }
         hashes.forEachIndexed { i, h -> tree.search(h.second, 5).forEach { n -> if (n != i) ds.union(i, n) } }

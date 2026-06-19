@@ -1,16 +1,5 @@
 package com.miaclean.app.data.ml
-import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.net.Uri
-import com.google.mediapipe.framework.image.BitmapImageBuilder
-import com.google.mediapipe.tasks.core.BaseOptions
-import com.google.mediapipe.tasks.vision.core.RunningMode
-import com.google.mediapipe.tasks.vision.imageembedder.ImageEmbedder
-import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.Closeable
-import javax.inject.Inject
-import javax.inject.Singleton
+import android.content.Context; import android.graphics.Bitmap; import android.graphics.BitmapFactory; import android.net.Uri; import com.google.mediapipe.framework.image.BitmapImageBuilder; import com.google.mediapipe.tasks.core.BaseOptions; import com.google.mediapipe.tasks.vision.core.RunningMode; import com.google.mediapipe.tasks.vision.imageembedder.ImageEmbedder; import dagger.hilt.android.qualifiers.ApplicationContext; import java.io.Closeable; import javax.inject.Inject; import javax.inject.Singleton
 @Singleton
 class ImageEmbedderWrapper @Inject constructor(@ApplicationContext private val context: Context) : Closeable {
     private val embedderLazy = lazy { try {
