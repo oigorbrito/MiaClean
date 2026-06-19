@@ -138,5 +138,8 @@
     <string name="classifier_error_service_unavailable">The classification service is temporarily unavailable.</string>
     <string name="classifier_error_empty_response">The image could not be categorized.</string>
     <string name="classifier_error_unexpected">An unexpected error occurred during classification.</string>
+    <string name="scan_error_permission_revoked">Permission revoked. Please grant access and try again.</string>
+    <string name="scan_error_media_unavailable">Some media files are inaccessible. Please check your storage.</string>
+    <string name="scan_error_unexpected">An unexpected error occurred during scan.</string>
 </resources>
 
