@@ -1,0 +1,165 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build
+> Task :shared:preBuild UP-TO-DATE
+> Task :app:preBuild UP-TO-DATE
+> Task :shared:preDebugBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateDebugBuildConfig UP-TO-DATE
+> Task :shared:writeDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :shared:generateDebugResValues UP-TO-DATE
+> Task :shared:generateDebugResources UP-TO-DATE
+> Task :shared:packageDebugResources UP-TO-DATE
+> Task :shared:extractDebugSupportedLocales UP-TO-DATE
+> Task :shared:extractDeepLinksDebug UP-TO-DATE
+> Task :shared:processDebugManifest UP-TO-DATE
+> Task :shared:compileDebugLibraryResources UP-TO-DATE
+> Task :shared:parseDebugLocalResources UP-TO-DATE
+> Task :shared:generateDebugRFile UP-TO-DATE
+> Task :shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :shared:compileDebugKotlinAndroid UP-TO-DATE
+> Task :shared:javaPreCompileDebug UP-TO-DATE
+> Task :shared:compileDebugJavaWithJavac NO-SOURCE
+> Task :shared:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :shared:mergeDebugShaders
+> Task :shared:compileDebugShaders NO-SOURCE
+> Task :shared:debugAssetsCopyForAGP NO-SOURCE
+> Task :shared:generateDebugAssets UP-TO-DATE
+> Task :shared:packageDebugAssets
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :shared:processDebugJavaRes
+> Task :shared:bundleLibRuntimeToJarDebug
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :shared:bundleLibRuntimeToDirDebug
+> Task :app:extractDebugSupportedLocales UP-TO-DATE
+> Task :app:generateDebugLocaleConfig UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :shared:mergeDebugJniLibFolders
+> Task :shared:mergeDebugNativeLibs NO-SOURCE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :shared:copyDebugJniLibsProjectOnly
+> Task :shared:preDebugUnitTestBuild UP-TO-DATE
+> Task :shared:generateDebugUnitTestStubRFile FROM-CACHE
+> Task :shared:compileDebugUnitTestKotlinAndroid NO-SOURCE
+> Task :shared:javaPreCompileDebugUnitTest FROM-CACHE
+> Task :shared:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :shared:processDebugUnitTestJavaRes NO-SOURCE
+> Task :shared:testDebugUnitTest NO-SOURCE
+> Task :shared:preReleaseBuild UP-TO-DATE
+> Task :shared:generateReleaseResValues FROM-CACHE
+> Task :shared:generateReleaseResources FROM-CACHE
+> Task :shared:packageReleaseResources FROM-CACHE
+> Task :shared:parseReleaseLocalResources FROM-CACHE
+> Task :shared:generateReleaseRFile FROM-CACHE
+> Task :shared:compileReleaseKotlinAndroid FROM-CACHE
+> Task :shared:javaPreCompileRelease FROM-CACHE
+> Task :shared:compileReleaseJavaWithJavac NO-SOURCE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :shared:bundleLibRuntimeToJarRelease
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :shared:bundleLibCompileToJarRelease
+> Task :shared:preReleaseUnitTestBuild UP-TO-DATE
+> Task :shared:generateReleaseUnitTestStubRFile FROM-CACHE
+> Task :shared:compileReleaseUnitTestKotlinAndroid NO-SOURCE
+> Task :shared:javaPreCompileReleaseUnitTest FROM-CACHE
+> Task :shared:compileReleaseUnitTestJavaWithJavac NO-SOURCE
+> Task :shared:processReleaseJavaRes
+> Task :shared:processReleaseUnitTestJavaRes NO-SOURCE
+> Task :shared:testReleaseUnitTest NO-SOURCE
+> Task :shared:test UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:kspDebugKotlin UP-TO-DATE
+> Task :app:kaptGenerateStubsDebugKotlin UP-TO-DATE
+> Task :app:kaptDebugKotlin UP-TO-DATE
+> Task :app:javaPreCompileDebug FROM-CACHE
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:downloadFaceDetectorModel
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:desugarDebugFileDependencies
+> Task :app:compressDebugAssets
+> Task :app:checkDebugDuplicateClasses FAILED
+
+> Task :app:compileDebugKotlin FAILED
+e: file:///app/app/src/main/java/com/miaclean/app/data/ScanRepository.kt:22:142 Unresolved reference 'item'.
+e: file:///app/app/src/main/java/com/miaclean/app/data/ScanRepository.kt:22:155 Overload resolution ambiguity between candidates:
+fun <T> Iterable<T>.sumOf(selector: (T) -> BigDecimal): BigDecimal
+fun <T> Iterable<T>.sumOf(selector: (T) -> BigInteger): BigInteger
+fun <T> Iterable<T>.sumOf(selector: (T) -> Double): Double
+fun <T> Iterable<T>.sumOf(selector: (T) -> Int): Int
+fun <T> Iterable<T>.sumOf(selector: (T) -> Long): Long
+fun <T> Iterable<T>.sumOf(selector: (T) -> UInt): UInt
+fun <T> Iterable<T>.sumOf(selector: (T) -> ULong): ULong
+e: file:///app/app/src/main/java/com/miaclean/app/data/ScanRepository.kt:22:161 Unresolved reference 'sizeBytes'.
+e: file:///app/app/src/main/java/com/miaclean/app/data/ScanRepository.kt:22:166 Unresolved reference 'item'.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/AndroidMediaScanner.kt:11:93 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/AndroidMediaScanner.kt:11:93 Argument type mismatch: actual type is 'kotlin.collections.List<T>', but 'android.net.Uri' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:10:113 Argument type mismatch: actual type is 'kotlin.String', but 'kotlin.Long' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:10:121 Argument type mismatch: actual type is 'kotlin.String?', but 'kotlin.String' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:10:149 Argument type mismatch: actual type is 'com.miaclean.app.domain.MediaItem', but 'kotlin.String?' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:12:45 Argument type mismatch: actual type is 'kotlin.String', but 'kotlin.Long' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:12:88 Argument type mismatch: actual type is 'kotlin.Long', but 'kotlin.String' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:12:122 Argument type mismatch: actual type is 'kotlin.String', but 'kotlin.Long' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:12:141 Argument type mismatch: actual type is 'kotlin.Boolean', but 'kotlin.String' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:12:162 Argument type mismatch: actual type is 'kotlin.String', but 'kotlin.Boolean' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:12:167 Argument type mismatch: actual type is 'kotlin.String?', but 'kotlin.String' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:12:189 Argument type mismatch: actual type is 'kotlin.Long', but 'kotlin.String?' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:12:217 Argument type mismatch: actual type is 'kotlin.String', but 'kotlin.Long' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:14:109 Argument type mismatch: actual type is 'kotlin.String', but 'kotlin.Long' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:14:117 Argument type mismatch: actual type is 'kotlin.String?', but 'kotlin.String' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:14:145 Argument type mismatch: actual type is 'com.miaclean.app.domain.MediaItem', but 'kotlin.String?' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:15:103 Argument type mismatch: actual type is 'kotlin.String', but 'kotlin.Long' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:15:111 Argument type mismatch: actual type is 'kotlin.String?', but 'kotlin.String' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:15:139 Argument type mismatch: actual type is 'com.miaclean.app.domain.MediaItem', but 'kotlin.String?' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:16:111 Argument type mismatch: actual type is 'kotlin.String', but 'kotlin.Long' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:16:119 Argument type mismatch: actual type is 'kotlin.String?', but 'kotlin.String' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/data/adapter/RoomMediaHashRepository.kt:16:147 Argument type mismatch: actual type is 'com.miaclean.app.domain.MediaItem', but 'kotlin.String?' was expected.
+e: file:///app/app/src/main/java/com/miaclean/app/ui/scan/ScanScreen.kt:93:112 Unresolved reference 'errorCode'.
+
+FAILURE: Build completed with 2 failures.
+
+1: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':app:checkDebugDuplicateClasses'.
+> Could not resolve all files for configuration ':app:debugRuntimeClasspath'.
+   > Failed to transform kotlin-parcelize-runtime-1.9.22.jar (org.jetbrains.kotlin:kotlin-parcelize-runtime:1.9.22) to match attributes {artifactType=enumerated-runtime-classes, org.gradle.category=library, org.gradle.libraryelements=jar, org.gradle.status=release, org.gradle.usage=java-runtime}.
+      > Could not download kotlin-parcelize-runtime-1.9.22.jar (org.jetbrains.kotlin:kotlin-parcelize-runtime:1.9.22)
+         > Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-parcelize-runtime/1.9.22/kotlin-parcelize-runtime-1.9.22.jar'.
+            > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-parcelize-runtime/1.9.22/kotlin-parcelize-runtime-1.9.22.jar'. Received status code 429 from server: Too Many Requests
+   > Failed to transform kotlin-android-extensions-runtime-1.9.22.jar (org.jetbrains.kotlin:kotlin-android-extensions-runtime:1.9.22) to match attributes {artifactType=enumerated-runtime-classes, org.gradle.category=library, org.gradle.libraryelements=jar, org.gradle.status=release, org.gradle.usage=java-runtime}.
+      > Could not download kotlin-android-extensions-runtime-1.9.22.jar (org.jetbrains.kotlin:kotlin-android-extensions-runtime:1.9.22)
+         > Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-android-extensions-runtime/1.9.22/kotlin-android-extensions-runtime-1.9.22.jar'.
+            > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-android-extensions-runtime/1.9.22/kotlin-android-extensions-runtime-1.9.22.jar'. Received status code 429 from server: Too Many Requests
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
+
+2: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
+
+BUILD FAILED in 48s
+61 actionable tasks: 17 executed, 12 from cache, 32 up-to-date

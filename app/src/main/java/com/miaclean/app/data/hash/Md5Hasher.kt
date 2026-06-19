@@ -1,11 +1,5 @@
 package com.miaclean.app.data.hash
-import android.content.Context
-import android.net.Uri
-import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.InputStream
-import java.security.MessageDigest
-import javax.inject.Inject
-import javax.inject.Singleton
+import android.content.Context; import android.net.Uri; import dagger.hilt.android.qualifiers.ApplicationContext; import java.io.InputStream; import java.security.MessageDigest; import javax.inject.Inject; import javax.inject.Singleton
 @Singleton
 class InternalMd5Hasher @Inject constructor(@ApplicationContext private val context: Context) {
     fun hash(uri: Uri): String? = context.contentResolver.openInputStream(uri)?.use(::hashStream)
