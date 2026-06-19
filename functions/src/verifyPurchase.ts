@@ -71,6 +71,7 @@ export function makeVerifyPurchaseHandler(deps: VerifyPurchaseDeps) {
     if (deps.config.enforceAppCheck) {
       const token = req.header("X-Firebase-AppCheck");
       if (!token) {
+        console.warn("App Check enforcement enabled but header missing");
         res.status(401).json({ isPro: false, reason: "play-api-error" });
         return;
       }
@@ -79,7 +80,9 @@ export function makeVerifyPurchaseHandler(deps: VerifyPurchaseDeps) {
           await deps.verifyAppCheckToken(token);
         }
       } catch (err) {
-        console.warn("App Check token verification failed", { err });
+        console.warn("App Check token verification failed", {
+          err: err instanceof Error ? err.message : "unknown",
+        });
         res.status(401).json({ isPro: false, reason: "play-api-error" });
         return;
       }
@@ -103,6 +106,7 @@ export function makeVerifyPurchaseHandler(deps: VerifyPurchaseDeps) {
 
     if (body.purchases.length > 10) {
       // DoS protection: reject requests with too many purchases.
+      console.warn("Rejected request with excessive purchase count", { count: body.purchases.length });
       res.status(400).json({ isPro: false, reason: "play-api-error" });
       return;
     }
@@ -301,7 +305,10 @@ async function safeReadCache(
   try {
     return await cache.read({ packageName, purchaseToken });
   } catch (err) {
-    console.warn("Cache read failed; ignoring", { err });
+    console.warn("Cache read failed; ignoring", {
+      err: err instanceof Error ? err.message : "unknown",
+      tokenMasked: maskToken(purchaseToken),
+    });
     return null;
   }
 }
@@ -315,8 +322,15 @@ async function safeWriteCache(
   try {
     await cache.write({ packageName, purchaseToken }, doc);
   } catch (err) {
-    console.warn("Cache write failed; non-fatal", { err });
+    console.warn("Cache write failed; non-fatal", {
+      err: err instanceof Error ? err.message : "unknown",
+      tokenMasked: maskToken(purchaseToken),
+    });
   }
+}
+
+function maskToken(token: string): string {
+  return token.length > 12 ? token.slice(0, 12) + "..." : "***";
 }
 
 async function safeAcknowledgeSubscription(

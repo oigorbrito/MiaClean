@@ -360,6 +360,37 @@ describe("verifyPurchase HTTP handler", () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it("rejects requests with malformed body", async () => {
+    const handler = makeVerifyPurchaseHandler({
+      config: readRuntimeConfig(),
+      playApi: fakePlayApi(),
+      cache: createInMemoryCache(),
+      now: () => NOW,
+    });
+    const req = fakeRequest("not-json");
+    const res = fakeResponse();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await handler(req as any, res as any);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("handles missing purchases array gracefully", async () => {
+    const handler = makeVerifyPurchaseHandler({
+      config: readRuntimeConfig(),
+      playApi: fakePlayApi(),
+      cache: createInMemoryCache(),
+      now: () => NOW,
+    });
+    const req = fakeRequest({
+      packageName: "com.miaclean.app",
+      localIsPro: false,
+    });
+    const res = fakeResponse();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await handler(req as any, res as any);
+    expect(res.statusCode).toBe(400);
+  });
+
   it("falls back to cached decision when Play API throws", async () => {
     const cache = createInMemoryCache();
     await cache.write(

@@ -168,7 +168,7 @@ async function handleVoidedPurchase(
   });
   if (!cached) {
     console.warn("Voided purchase for unknown token; nothing to revoke", {
-      purchaseToken: notification.purchaseToken.slice(0, 12) + "...",
+      purchaseTokenMasked: notification.purchaseToken.slice(0, 12) + "...",
     });
     return;
   }
