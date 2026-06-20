@@ -2,6 +2,7 @@ package com.miaclean.app.di
 
 import android.content.Context
 import androidx.room.Room
+import com.miaclean.app.data.classify.MediaClassifier
 import com.miaclean.app.data.db.MediaHashDao
 import com.miaclean.app.data.db.MiaCleanDatabase
 import dagger.Module
@@ -24,4 +25,8 @@ object AppModule {
 
     @Provides
     fun provideMediaHashDao(db: MiaCleanDatabase): MediaHashDao = db.mediaHashDao()
+
+    @Provides
+    @Singleton
+    fun provideMediaClassifier(): MediaClassifier = MediaClassifier()
 }

@@ -15,15 +15,20 @@ import com.miaclean.app.data.scan.MediaStoreScanner
 import com.miaclean.app.data.scan.SafWhatsAppScanner
 import com.miaclean.app.domain.MediaCategory
 import com.miaclean.app.domain.MediaItem
+import com.miaclean.app.domain.ScanErrorCode
 import com.miaclean.app.domain.ScanProgress
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.coEvery
+import io.mockk.mockkStatic
+import io.mockk.unmockkAll
 import java.io.FileNotFoundException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -40,6 +45,17 @@ class ScanRepositoryHardeningTest {
     private val logger = mockk<ClassifierEventLogger>(relaxed = true)
     private val dao = mockk<MediaHashDao>()
 
+    @Before
+    fun setup() {
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } returns mockk(relaxed = true)
+    }
+
+    @After
+    fun teardown() {
+        unmockkAll()
+    }
+
     @Test
     fun `permission revoked during scan emits retryable failure`() = runTest {
         every { mediaStoreScanner.scanAll() } throws SecurityException("permission revoked")
@@ -50,7 +66,7 @@ class ScanRepositoryHardeningTest {
         assertEquals(
             listOf(
                 ScanProgress.Running(0, 0),
-                ScanProgress.Failed(R.string.scan_error_permission_revoked),
+                ScanProgress.Failed(ScanErrorCode.PERMISSION_REVOKED),
             ),
             emissions,
         )
@@ -67,7 +83,7 @@ class ScanRepositoryHardeningTest {
         assertEquals(
             listOf(
                 ScanProgress.Running(0, 0),
-                ScanProgress.Failed(R.string.scan_error_media_unavailable),
+                ScanProgress.Failed(ScanErrorCode.MEDIA_UNAVAILABLE),
             ),
             emissions,
         )
@@ -84,7 +100,7 @@ class ScanRepositoryHardeningTest {
         assertEquals(
             listOf(
                 ScanProgress.Running(0, 0),
-                ScanProgress.Failed(R.string.scan_error_unexpected),
+                ScanProgress.Failed(ScanErrorCode.UNEXPECTED),
             ),
             emissions,
         )
@@ -127,7 +143,7 @@ class ScanRepositoryHardeningTest {
     private fun stubHappyPath(item: MediaItem) {
         every { mediaStoreScanner.scanAll() } returns listOf(item)
         every { safScanner.scan(any()) } returns emptyList()
-        coEvery { dao.findByMediaId(item.id) } returns null
+        coEvery { dao.findAllMediaIds() } returns emptyList()
         every { md5Hasher.hash(any()) } returns "md5-${item.id}"
         every { perceptualHasher.hash(any()) } returns "phash-${item.id}"
         every { imageEmbedder.embed(any()) } returns null
@@ -146,7 +162,7 @@ class ScanRepositoryHardeningTest {
 
     private fun mediaItem() = MediaItem(
         id = 42L,
-        uri = Uri.parse("content://media/external/images/media/42").toString(),
+        uri = "content://media/external/images/media/42",
         displayName = "IMG_0042.jpg",
         mimeType = "image/jpeg",
         sizeBytes = 1024L,

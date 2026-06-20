@@ -16,6 +16,7 @@ import com.miaclean.app.data.scan.SafWhatsAppScanner
 import com.miaclean.app.domain.DuplicateGroup
 import com.miaclean.app.domain.MediaCategory
 import com.miaclean.app.domain.MediaItem
+import com.miaclean.app.domain.ScanErrorCode
 import com.miaclean.app.domain.ScanProgress
 import com.miaclean.app.ui.scan.ClassifierErrorMapper
 import kotlinx.coroutines.Dispatchers
@@ -46,72 +47,85 @@ class ScanRepository @Inject constructor(
 ) {
 
     fun scan(additionalSafTreeUris: List<Uri> = emptyList()): Flow<ScanProgress> = channelFlow {
-        send(ScanProgress.Running(0, 0))
-        val items = withContext(Dispatchers.IO) {
-            val base = mediaStoreScanner.scanAll()
-            val extra = additionalSafTreeUris.flatMap { safScanner.scan(it) }
-            (base + extra).distinctBy { it.uri }
-        }
-        val total = items.size
-        if (total == 0) {
-            send(ScanProgress.Done(duplicates = 0, groups = 0))
-            return@channelFlow
-        }
-
-        var firstClassifierErrorResId: Int? = null
-
-        withContext(Dispatchers.IO) {
-            items.forEachIndexed { index, item ->
-                val cached = dao.findByMediaId(item.id)
-                if (cached == null) {
-                    val uri = Uri.parse(item.uri)
-                    val md5 = md5Hasher.hash(uri)
-                    val phash = if (item.mimeType.startsWith("image/")) {
-                        perceptualHasher.hash(uri)
-                    } else {
-                        null
-                    }
-                    val embeddingHash = if (item.mimeType.startsWith("image/")) {
-                        imageEmbedder.embed(uri)?.let(::encodeEmbedding)
-                    } else {
-                        null
-                    }
-                    if (md5 != null) {
-                        val category = try {
-                            resolveCategory(item, uri) { error ->
-                                if (firstClassifierErrorResId == null) {
-                                    firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(error)
-                                }
-                            }
-                        } catch (e: Exception) {
-                            // If resolveCategory throws (shouldn't, but defense in depth),
-                            // record as unexpected error and fall back to Photo.
-                            if (firstClassifierErrorResId == null) {
-                                firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(ErrorCategory.UNEXPECTED)
-                            }
-                            MediaCategory.Photo
-                        }
-                        dao.upsert(
-                            item.toEntity(
-                                md5 = md5,
-                                pHash = phash,
-                                embeddingHash = embeddingHash,
-                                category = category,
-                            ),
-                        )
-                    }
-                }
-                send(ScanProgress.Running(processed = index + 1, total = total))
+        try {
+            send(ScanProgress.Running(0, 0))
+            val items = withContext(Dispatchers.IO) {
+                val base = mediaStoreScanner.scanAll()
+                val extra = additionalSafTreeUris.flatMap { safScanner.scan(it) }
+                (base + extra).distinctBy { it.uri }
             }
-        }
+            val total = items.size
+            if (total == 0) {
+                send(ScanProgress.Done(duplicates = 0, groups = 0))
+                return@channelFlow
+            }
 
-        val groups = buildGroups()
-        val duplicates = groups.sumOf { it.items.size }
-        send(ScanProgress.Done(
-            duplicates = duplicates,
-            groups = groups.size,
-            classificationErrorResId = firstClassifierErrorResId
-        ))
+            var firstClassifierErrorResId: Int? = null
+
+            // Optimization: Pre-fetch all cached IDs to avoid N+1 database queries in the loop.
+            // This reduces the complexity from O(N) queries to O(1) plus O(1) memory lookup per item.
+            val cachedIds = withContext(Dispatchers.IO) {
+                dao.findAllMediaIds().toSet()
+            }
+
+            withContext(Dispatchers.IO) {
+                items.forEachIndexed { index, item ->
+                    if (item.id !in cachedIds) {
+                        val uri = Uri.parse(item.uri)
+                        val md5 = md5Hasher.hash(uri)
+                        val phash = if (item.mimeType.startsWith("image/")) {
+                            perceptualHasher.hash(uri)
+                        } else {
+                            null
+                        }
+                        val embeddingHash = if (item.mimeType.startsWith("image/")) {
+                            imageEmbedder.embed(uri)?.let(::encodeEmbedding)
+                        } else {
+                            null
+                        }
+                        if (md5 != null) {
+                            val category = try {
+                                resolveCategory(item, uri) { error ->
+                                    if (firstClassifierErrorResId == null) {
+                                        firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(error)
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                // If resolveCategory throws (shouldn't, but defense in depth),
+                                // record as unexpected error and fall back to Photo.
+                                if (firstClassifierErrorResId == null) {
+                                    firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(ErrorCategory.UNEXPECTED)
+                                }
+                                MediaCategory.Photo
+                            }
+                            dao.upsert(
+                                item.toEntity(
+                                    md5 = md5,
+                                    pHash = phash,
+                                    embeddingHash = embeddingHash,
+                                    category = category,
+                                ),
+                            )
+                        }
+                    }
+                    send(ScanProgress.Running(processed = index + 1, total = total))
+                }
+            }
+
+            val groups = buildGroups()
+            val duplicates = groups.sumOf { it.items.size }
+            send(ScanProgress.Done(
+                duplicates = duplicates,
+                groups = groups.size,
+                classificationErrorResId = firstClassifierErrorResId
+            ))
+        } catch (e: SecurityException) {
+            send(ScanProgress.Failed(ScanErrorCode.PERMISSION_REVOKED))
+        } catch (e: java.io.FileNotFoundException) {
+            send(ScanProgress.Failed(ScanErrorCode.MEDIA_UNAVAILABLE))
+        } catch (e: Exception) {
+            send(ScanProgress.Failed(ScanErrorCode.UNEXPECTED))
+        }
     }
 
     suspend fun loadGroups(): List<DuplicateGroup> = withContext(Dispatchers.IO) { buildGroups() }

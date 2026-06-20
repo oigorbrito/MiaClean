@@ -69,6 +69,9 @@ interface MediaHashDao {
     @Query("SELECT * FROM media_hash WHERE embedding_hash IS NOT NULL")
     suspend fun findAllWithEmbedding(): List<MediaHashEntity>
 
+    @Query("SELECT media_id FROM media_hash")
+    suspend fun findAllMediaIds(): List<Long>
+
     companion object {
         /** Safely below SQLite's 999-variable limit on API 26–30. */
         private const val CHUNK_SIZE = 900
