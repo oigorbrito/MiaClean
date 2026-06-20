@@ -56,7 +56,8 @@ export type VerifyPurchaseReason =
   | "package-mismatch"
   | "product-mismatch"
   | "play-api-error"
-  | "unknown-product";
+  | "unknown-product"
+  | "too-many-purchases";
 
 /**
  * Subset of `androidpublisher.purchases.subscriptions.get` response we care about. Letting

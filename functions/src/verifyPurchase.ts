@@ -15,6 +15,10 @@
  *    so a forged `packageName=other.app` token never reaches the Play API and never burns
  *    quota.
  *
+ *  * The number of purchases per request is capped at 10. This prevents DoS attacks that
+ *    attempt to trigger thousands of concurrent Play API calls or Firestore writes from
+ *    a single request.
+ *
  *  * Unknown product IDs short-circuit too: a request with `products: ["legitimate_other_app_sku"]`
  *    is rejected with `unknown-product` because the configured `PRO_PRODUCT_IDS` list is the
  *    source of truth for what counts as Pro on this backend.
@@ -56,6 +60,12 @@ export interface VerifyPurchaseDeps {
 const CACHE_TTL_MILLIS = 24 * 60 * 60 * 1000;
 
 /**
+ * Maximum number of purchases allowed in a single /verifyPurchase request. Protects against
+ * DoS and excessive Play API quota consumption.
+ */
+const MAX_PURCHASES_PER_REQUEST = 10;
+
+/**
  * Top-level entry point bound by `index.ts`. Returns a handler shaped like a Firebase v2 HTTPS
  * onRequest function so it can be wrapped in `onRequest({ ...opts }, handler)`.
  */
@@ -85,6 +95,11 @@ export function makeVerifyPurchaseHandler(deps: VerifyPurchaseDeps) {
 
     if (body.purchases.length === 0) {
       res.status(200).json({ isPro: false, reason: "no-purchases" });
+      return;
+    }
+
+    if (body.purchases.length > MAX_PURCHASES_PER_REQUEST) {
+      res.status(400).json({ isPro: false, reason: "too-many-purchases" });
       return;
     }
 

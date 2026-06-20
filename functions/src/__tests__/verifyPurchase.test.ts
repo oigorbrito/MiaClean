@@ -282,6 +282,28 @@ describe("verifyPurchase HTTP handler", () => {
     expect(res.statusCode).toBe(401);
   });
 
+  it("rejects requests exceeding the maximum number of purchases", async () => {
+    const handler = makeVerifyPurchaseHandler({
+      config: readRuntimeConfig(),
+      playApi: fakePlayApi(),
+      cache: createInMemoryCache(),
+      now: () => NOW,
+    });
+    const req = fakeRequest({
+      packageName: "com.miaclean.app",
+      localIsPro: false,
+      purchases: Array(11).fill({
+        purchaseToken: "token",
+        products: ["pro_monthly"],
+      }),
+    });
+    const res = fakeResponse();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await handler(req as any, res as any);
+    expect(res.statusCode).toBe(400);
+    expect((res.body as VerifyPurchaseResponse).reason).toBe("too-many-purchases");
+  });
+
   it("falls back to cached decision when Play API throws", async () => {
     const cache = createInMemoryCache();
     await cache.write(
