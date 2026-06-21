@@ -61,9 +61,13 @@ class ScanRepository @Inject constructor(
         var firstClassifierErrorResId: Int? = null
 
         withContext(Dispatchers.IO) {
+            // Optimization: Pre-fetch all cached IDs to avoid N+1 database queries.
+            // Impact: Reduces lookup time from O(N) database calls to O(1) in-memory set lookups.
+            val cachedIds = dao.findAllMediaIds().toSet()
+            val pendingEntities = mutableListOf<MediaHashEntity>()
+
             items.forEachIndexed { index, item ->
-                val cached = dao.findByMediaId(item.id)
-                if (cached == null) {
+                if (item.id !in cachedIds) {
                     val uri = Uri.parse(item.uri)
                     val md5 = md5Hasher.hash(uri)
                     val phash = if (item.mimeType.startsWith("image/")) {
@@ -91,17 +95,28 @@ class ScanRepository @Inject constructor(
                             }
                             MediaCategory.Photo
                         }
-                        dao.upsert(
+                        pendingEntities.add(
                             item.toEntity(
                                 md5 = md5,
                                 pHash = phash,
                                 embeddingHash = embeddingHash,
                                 category = category,
-                            ),
+                            )
                         )
+
+                        // Optimization: Batch upsert to reduce database transaction overhead.
+                        // Impact: Reduces O(N) transactions to O(N/50).
+                        if (pendingEntities.size >= 50) {
+                            dao.upsertAll(pendingEntities)
+                            pendingEntities.clear()
+                        }
                     }
                 }
                 send(ScanProgress.Running(processed = index + 1, total = total))
+            }
+
+            if (pendingEntities.isNotEmpty()) {
+                dao.upsertAll(pendingEntities)
             }
         }
 
