@@ -66,57 +66,63 @@ class ScanRepository @Inject constructor(
             val cachedIds = dao.findAllMediaIds().toSet()
             val pendingEntities = mutableListOf<MediaHashEntity>()
 
-            items.forEachIndexed { index, item ->
-                if (item.id !in cachedIds) {
-                    val uri = Uri.parse(item.uri)
-                    val md5 = md5Hasher.hash(uri)
-                    val phash = if (item.mimeType.startsWith("image/")) {
-                        perceptualHasher.hash(uri)
-                    } else {
-                        null
-                    }
-                    val embeddingHash = if (item.mimeType.startsWith("image/")) {
-                        imageEmbedder.embed(uri)?.let(::encodeEmbedding)
-                    } else {
-                        null
-                    }
-                    if (md5 != null) {
-                        val category = try {
-                            resolveCategory(item, uri) { error ->
-                                if (firstClassifierErrorResId == null) {
-                                    firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(error)
+            try {
+                items.forEachIndexed { index, item ->
+                    if (item.id !in cachedIds) {
+                        val uri = Uri.parse(item.uri)
+                        val md5 = md5Hasher.hash(uri)
+                        val phash = if (item.mimeType.startsWith("image/")) {
+                            perceptualHasher.hash(uri)
+                        } else {
+                            null
+                        }
+                        val embeddingHash = if (item.mimeType.startsWith("image/")) {
+                            imageEmbedder.embed(uri)?.let(::encodeEmbedding)
+                        } else {
+                            null
+                        }
+                        if (md5 != null) {
+                            val category = try {
+                                resolveCategory(item, uri) { error ->
+                                    if (firstClassifierErrorResId == null) {
+                                        firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(error)
+                                    }
                                 }
+                            } catch (e: Exception) {
+                                // If resolveCategory throws (shouldn't, but defense in depth),
+                                // record as unexpected error and fall back to Photo.
+                                if (firstClassifierErrorResId == null) {
+                                    firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(ErrorCategory.UNEXPECTED)
+                                }
+                                MediaCategory.Photo
                             }
-                        } catch (e: Exception) {
-                            // If resolveCategory throws (shouldn't, but defense in depth),
-                            // record as unexpected error and fall back to Photo.
-                            if (firstClassifierErrorResId == null) {
-                                firstClassifierErrorResId = ClassifierErrorMapper.mapToFriendlyMessage(ErrorCategory.UNEXPECTED)
-                            }
-                            MediaCategory.Photo
-                        }
-                        pendingEntities.add(
-                            item.toEntity(
-                                md5 = md5,
-                                pHash = phash,
-                                embeddingHash = embeddingHash,
-                                category = category,
+                            pendingEntities.add(
+                                item.toEntity(
+                                    md5 = md5,
+                                    pHash = phash,
+                                    embeddingHash = embeddingHash,
+                                    category = category,
+                                )
                             )
-                        )
 
-                        // Optimization: Batch upsert to reduce database transaction overhead.
-                        // Impact: Reduces O(N) transactions to O(N/50).
-                        if (pendingEntities.size >= 50) {
-                            dao.upsertAll(pendingEntities)
-                            pendingEntities.clear()
+                            // Optimization: Batch upsert to reduce database transaction overhead.
+                            // Impact: Reduces O(N) transactions to O(N/50).
+                            if (pendingEntities.size >= 50) {
+                                dao.upsertAll(pendingEntities)
+                                pendingEntities.clear()
+                            }
                         }
+                    }
+                    send(ScanProgress.Running(processed = index + 1, total = total))
+                }
+            } finally {
+                // Hardening: Ensure the final batch is flushed even if scan is interrupted.
+                // Using NonCancellable to guarantee persistence of processed items.
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    if (pendingEntities.isNotEmpty()) {
+                        dao.upsertAll(pendingEntities)
                     }
                 }
-                send(ScanProgress.Running(processed = index + 1, total = total))
-            }
-
-            if (pendingEntities.isNotEmpty()) {
-                dao.upsertAll(pendingEntities)
             }
         }
 
