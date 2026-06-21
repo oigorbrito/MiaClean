@@ -19,6 +19,7 @@ import com.miaclean.app.domain.ScanProgress
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.coEvery
+import io.mockk.coVerify
 import java.io.FileNotFoundException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
@@ -88,6 +89,29 @@ class ScanRepositoryHardeningTest {
             ),
             emissions,
         )
+    }
+
+    @Test
+    fun `scan batches upserts in chunks of 50`() = runTest {
+        val items = List(60) { i -> mediaItem().copy(id = i.toLong(), uri = "content://media/$i") }
+        every { mediaStoreScanner.scanAll() } returns items
+        every { safScanner.scan(any()) } returns emptyList()
+        coEvery { dao.findAllMediaIds() } returns emptyList()
+        every { md5Hasher.hash(any()) } returns "md5"
+        every { perceptualHasher.hash(any()) } returns "phash"
+        every { imageEmbedder.embed(any()) } returns null
+        every { classifier.classify(any()) } returns MediaCategory.Photo
+        every { selfieDetector.isSelfie(any(), any(), any(), any()) } returns false
+        coEvery { memeDetector.isMeme(any(), any(), any(), any()) } returns false
+        coEvery { dao.upsertAll(any()) } returns Unit
+        coEvery { dao.findExactDuplicates() } returns emptyList()
+        coEvery { dao.findAllWithPHash() } returns emptyList()
+        coEvery { dao.findAllWithEmbedding() } returns emptyList()
+
+        repository().scan().toList()
+
+        // Should call upsertAll(50) then upsertAll(10)
+        coVerify(exactly = 2) { dao.upsertAll(any()) }
     }
 
     @Test
