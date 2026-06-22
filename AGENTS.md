@@ -1,33 +1,59 @@
 # AGENTS.md - IA Agent Instructions
 
-Welcome, Agent. This file contains specific instructions for your work in the MiaClean repository.
+Welcome, Agent. This file contains core directives for working in this repository.
 
-## Mandatory Reading Order
-1. `README.md`: High-level overview and stack.
-2. `docs/REPOSITORY_AUDIT.md`: Current state of features and stack.
-3. `docs/ARCHITECTURE.md`: Technical design and layer boundaries.
-4. `RULES.md`: Coding standards and constraints.
-5. `harness/TASK_TEMPLATE.md`: How to structure your tasks.
+# BPT Agent Economy Mode
 
-## Standard Commands
-- Build: `./gradlew assembleDebug`
-- Lint: `./gradlew :app:lintDebug`
-- Unit Tests: `./gradlew :app:testDebugUnitTest`
+Todos os agentes devem operar em modo econômico por padrão. Veja também `docs/prompts/BPT_AGENT_ECONOMY_MODE.md`.
 
-## Development Rules
-- **Do NOT re-implement modules**: Always check existing implementations in:
-  - `data/classify`: For any categorization or ML logic.
-  - `data/billing`: For monetization or subscription logic.
-  - `data/delete`: For file deletion logic.
-  - `widget`: For any glance widget logic.
-  - `work`: For background tasks.
-- **No Code Changes in this Task**: This specific task is for documentation and harness setup only. Do not alter Kotlin or Gradle files.
-- **Verify before you act**: Always use `ls` and `read_file` to confirm the current state before proposing changes.
+## Regras globais
+
+- Leia pouco.
+- Altere pouco.
+- Valide só o necessário.
+- Não audite o repositório inteiro.
+- Não carregue skills fora do escopo.
+- Não leia `docs/`, `audit/`, `.github/`, `.jules/`, `.vs/`, `.next/` ou `node_modules/` salvo pedido explícito.
+- Não abra arquivos grandes sem busca pontual prévia.
+- Não abra mais de 5 arquivos sem justificar.
+- Não cole logs completos.
+- Não repita contexto já conhecido.
+- Se encontrar problema fora do escopo, apenas relate no final.
+- Responda sempre em formato curto:
+  - Veredito
+  - Arquivos alterados
+  - Validação
+  - Risco principal
+  - Próximo passo
+
+## Perfis de Agente
+
+### BPT Bugfix Cirúrgico
+Uso: erros claros de TypeScript, imports quebrados, correções pontuais.
+- Pode ler: arquivo afetado, imports, tipos, teste específico.
+- Pode alterar: máx 3 arquivos.
+- Validação: `yarn typecheck` ou teste específico.
+
+### BPT Auditoria Leve
+Uso: descobrir o que existe e lacunas.
+- Pode ler: máx 5 arquivos, 200 linhas/arq.
+- Proibido: alterar código, rodar testes, auditoria ampla.
+
+### BPT PR Gate
+Uso: validação final antes de PR.
+- Comandos: `git status -sb`, `git diff`, `yarn typecheck`.
+- Proibido: alterar código, refatorar, sugerir merge direto.
+
+### BPT Docs/Product Map
+Uso: documentação estratégica e registros.
+- Pode alterar: `docs/`.
+- Proibido: alterar código, tocar em `src/`.
+
+## Standard Commands & Rules
+- **Multi-module**: `:app` (Android) and `:shared` (KMP).
+- **KMP Boundaries**: No `android.*` in `shared/src/commonMain`.
+- **Localization**: `ScanErrorCode` to `R.string` mapping only in `:app`.
+- **Standard Commands**: `./gradlew assembleDebug`, `./gradlew :app:lintDebug`, `./gradlew :app:testDebugUnitTest`, `./gradlew :shared:test`.
 
 ## Final Response Format
-When completing a task, your final response must follow this structure:
-1. **Files Created/Modified**: List all files.
-2. **Commands Executed**: List all commands run and their results.
-3. **Validation Results**: Summary of lint/tests.
-4. **Pending Items**: Anything that couldn't be completed or requires a decision.
-5. **Next Recommended Prompt**: A specific prompt for the next logical step.
+Responda sempre em formato curto (conforme Regras globais).
