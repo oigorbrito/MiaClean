@@ -56,6 +56,12 @@ export interface VerifyPurchaseDeps {
 const CACHE_TTL_MILLIS = 24 * 60 * 60 * 1000;
 
 /**
+ * Hard limit on the number of purchases processed in a single request. Mitigates both
+ * Denial-of-Service (DoS) and Google Play Developer API quota exhaustion.
+ */
+const MAX_PURCHASES_PER_REQUEST = 10;
+
+/**
  * Top-level entry point bound by `index.ts`. Returns a handler shaped like a Firebase v2 HTTPS
  * onRequest function so it can be wrapped in `onRequest({ ...opts }, handler)`.
  */
@@ -85,6 +91,11 @@ export function makeVerifyPurchaseHandler(deps: VerifyPurchaseDeps) {
 
     if (body.purchases.length === 0) {
       res.status(200).json({ isPro: false, reason: "no-purchases" });
+      return;
+    }
+
+    if (body.purchases.length > MAX_PURCHASES_PER_REQUEST) {
+      res.status(400).json({ isPro: false, reason: "too-many-purchases" });
       return;
     }
 
