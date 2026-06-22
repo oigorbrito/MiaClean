@@ -61,9 +61,13 @@ class ScanRepository @Inject constructor(
         var firstClassifierErrorResId: Int? = null
 
         withContext(Dispatchers.IO) {
+            // BOLT: Pre-fetch all processed IDs in a single query to avoid N+1 individual lookups
+            // during the scan loop.
+            val processedIds = dao.findAllMediaIds().toSet()
+            val newEntities = mutableListOf<MediaHashEntity>()
+
             items.forEachIndexed { index, item ->
-                val cached = dao.findByMediaId(item.id)
-                if (cached == null) {
+                if (item.id !in processedIds) {
                     val uri = Uri.parse(item.uri)
                     val md5 = md5Hasher.hash(uri)
                     val phash = if (item.mimeType.startsWith("image/")) {
@@ -91,7 +95,7 @@ class ScanRepository @Inject constructor(
                             }
                             MediaCategory.Photo
                         }
-                        dao.upsert(
+                        newEntities.add(
                             item.toEntity(
                                 md5 = md5,
                                 pHash = phash,
@@ -99,9 +103,20 @@ class ScanRepository @Inject constructor(
                                 category = category,
                             ),
                         )
+
+                        // BOLT: Batch insertions to reduce transaction overhead while keeping
+                        // progress emissions regular.
+                        if (newEntities.size >= BATCH_SIZE) {
+                            dao.upsertAll(newEntities)
+                            newEntities.clear()
+                        }
                     }
                 }
                 send(ScanProgress.Running(processed = index + 1, total = total))
+            }
+
+            if (newEntities.isNotEmpty()) {
+                dao.upsertAll(newEntities)
             }
         }
 
@@ -307,6 +322,7 @@ private fun decodeEmbedding(serialized: String): FloatArray {
 
 private const val SEMANTIC_SIMILARITY_THRESHOLD = 0.92f
 private const val PHASH_DISTANCE_THRESHOLD = 5
+private const val BATCH_SIZE = 50
 
 private class IntDisjointSet(size: Int) {
     private val parent = IntArray(size) { it }

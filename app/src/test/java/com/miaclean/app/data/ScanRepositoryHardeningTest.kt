@@ -77,7 +77,7 @@ class ScanRepositoryHardeningTest {
     fun `unexpected pipeline exception emits unexpected failure`() = runTest {
         val item = mediaItem()
         stubHappyPath(item)
-        coEveryUpsertCrash()
+        coEveryUpsertAllCrash()
 
         val emissions = repository().scan().toList()
 
@@ -127,21 +127,21 @@ class ScanRepositoryHardeningTest {
     private fun stubHappyPath(item: MediaItem) {
         every { mediaStoreScanner.scanAll() } returns listOf(item)
         every { safScanner.scan(any()) } returns emptyList()
-        coEvery { dao.findByMediaId(item.id) } returns null
+        coEvery { dao.findAllMediaIds() } returns emptyList()
         every { md5Hasher.hash(any()) } returns "md5-${item.id}"
         every { perceptualHasher.hash(any()) } returns "phash-${item.id}"
         every { imageEmbedder.embed(any()) } returns null
         every { classifier.classify(item) } returns MediaCategory.Photo
         every { selfieDetector.isSelfie(any(), any(), any(), any()) } returns false
         coEvery { memeDetector.isMeme(any(), any(), any(), any()) } returns false
-        coEvery { dao.upsert(any()) } returns 1L
+        coEvery { dao.upsertAll(any()) } returns Unit
         coEvery { dao.findExactDuplicates() } returns emptyList()
         coEvery { dao.findAllWithPHash() } returns emptyList()
         coEvery { dao.findAllWithEmbedding() } returns emptyList()
     }
 
-    private fun coEveryUpsertCrash() {
-        coEvery { dao.upsert(any()) } throws IllegalStateException("db crashed")
+    private fun coEveryUpsertAllCrash() {
+        coEvery { dao.upsertAll(any()) } throws IllegalStateException("db crashed")
     }
 
     private fun mediaItem() = MediaItem(
