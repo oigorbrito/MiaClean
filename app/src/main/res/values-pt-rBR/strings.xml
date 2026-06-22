@@ -52,6 +52,9 @@
     <string name="results_delete_undo_action">Desfazer</string>
     <string name="results_empty_filtered">Nenhuma duplicada nessa categoria.</string>
     <string name="results_filter_all">Tudo</string>
+    <string name="results_item_selected">Selecionado</string>
+    <string name="results_item_not_selected">Não selecionado</string>
+    <string name="results_video_icon_description">Vídeo</string>
     <string name="category_screenshot">Screenshots</string>
     <string name="category_selfie">Selfies</string>
     <string name="category_meme">Memes</string>

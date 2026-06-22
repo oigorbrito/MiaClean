@@ -1,0 +1,3 @@
+## 2025-05-15 - Accessible Selection Feedback in Media Grids
+**Learning:** In media-heavy grid layouts, visual borders alone are often insufficient for confirming selection state, especially for users with low vision or those relying on screen readers. Combining a scale animation (`graphicsLayer`) with tactile haptics (`LocalHapticFeedback`) and explicit semantic state descriptions (`stateDescription`) creates a much more robust "confirmation loop" that works across different sensory modalities.
+**Action:** Always pair visual state changes (like selection borders) with a non-visual signal (haptics) and an explicit semantic state description for screen readers.
