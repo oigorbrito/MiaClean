@@ -28,6 +28,7 @@ class PerceptualHasher @Inject constructor(
         return try {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 // Bolt optimization: Downscale before re-encoding to save memory and CPU.
+                // This improves scan performance for high-resolution images.
                 // We use inJustDecodeBounds to get the dimensions without loading the full bitmap.
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 BitmapFactory.decodeStream(input, null, bounds)
