@@ -22,6 +22,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.miaclean.app.R
 import com.miaclean.app.domain.ScanProgress
+import com.miaclean.app.ui.scan.ScanErrorMapper
 
 @Composable
 fun ScanScreen(
@@ -90,7 +91,7 @@ private fun ScanContent(
             }
 
             is ScanProgress.Failed -> {
-                Text(text = state.reason, style = MaterialTheme.typography.bodyLarge)
+                Text(text = stringResource(ScanErrorMapper.map(state.errorCode)), style = MaterialTheme.typography.bodyLarge)
                 OutlinedButton(onClick = onStart) { Text(stringResource(R.string.scan_start)) }
             }
         }

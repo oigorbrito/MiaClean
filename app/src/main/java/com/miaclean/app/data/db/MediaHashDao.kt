@@ -12,6 +12,8 @@ interface MediaHashDao {
 
     @Query("SELECT * FROM media_hash WHERE media_id = :mediaId LIMIT 1")
     suspend fun findByMediaId(mediaId: Long): MediaHashEntity?
+    @Query("SELECT media_id FROM media_hash")
+    suspend fun findAllMediaIds(): Set<Long>
 
     @Query("SELECT * FROM media_hash WHERE media_id IN (:mediaIds)")
     suspend fun findByMediaIdsChunk(mediaIds: List<Long>): List<MediaHashEntity>
