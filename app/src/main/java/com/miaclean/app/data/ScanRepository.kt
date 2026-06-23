@@ -72,7 +72,7 @@ class ScanRepository @Inject constructor(
 
         try {
             withContext(Dispatchers.IO) {
-                val cachedIds = dao.findAllMediaIds()
+                val cachedIds = dao.findAllMediaIds().toSet()
                 val batch = mutableListOf<com.miaclean.app.data.db.MediaHashEntity>()
 
                 items.forEachIndexed { index, item ->
