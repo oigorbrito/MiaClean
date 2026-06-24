@@ -61,9 +61,11 @@ class ScanRepository @Inject constructor(
         var firstClassifierErrorResId: Int? = null
 
         withContext(Dispatchers.IO) {
+            val cachedIds = dao.findAllMediaIds().toSet()
+            val batch = mutableListOf<MediaHashEntity>()
+
             items.forEachIndexed { index, item ->
-                val cached = dao.findByMediaId(item.id)
-                if (cached == null) {
+                if (item.id !in cachedIds) {
                     val uri = Uri.parse(item.uri)
                     val md5 = md5Hasher.hash(uri)
                     val phash = if (item.mimeType.startsWith("image/")) {
@@ -91,7 +93,7 @@ class ScanRepository @Inject constructor(
                             }
                             MediaCategory.Photo
                         }
-                        dao.upsert(
+                        batch.add(
                             item.toEntity(
                                 md5 = md5,
                                 pHash = phash,
@@ -99,9 +101,16 @@ class ScanRepository @Inject constructor(
                                 category = category,
                             ),
                         )
+                        if (batch.size >= 50) {
+                            dao.upsertAll(batch)
+                            batch.clear()
+                        }
                     }
                 }
                 send(ScanProgress.Running(processed = index + 1, total = total))
+            }
+            if (batch.isNotEmpty()) {
+                dao.upsertAll(batch)
             }
         }
 
