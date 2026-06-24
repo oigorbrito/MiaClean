@@ -1,6 +1,8 @@
 package com.miaclean.app.data
 
 import android.net.Uri
+import io.mockk.mockkStatic
+import org.junit.Before
 import com.miaclean.app.R
 import com.miaclean.app.data.classify.ErrorCategory
 import com.miaclean.app.data.classify.MediaClassifier
@@ -39,6 +41,12 @@ class ScanRepositoryHardeningTest {
     private val memeDetector = mockk<MemeDetector>()
     private val logger = mockk<ClassifierEventLogger>(relaxed = true)
     private val dao = mockk<MediaHashDao>()
+
+    @Before
+    fun setup() {
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } returns mockk()
+    }
 
     @Test
     fun `permission revoked during scan emits retryable failure`() = runTest {

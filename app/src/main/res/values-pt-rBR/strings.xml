@@ -37,6 +37,9 @@
     <string name="results_preview_close">Fechar</string>
     <string name="results_select_duplicates">Selecionar duplicadas</string>
     <string name="results_clear_selection">Limpar</string>
+    <string name="results_item_selected">Selecionado</string>
+    <string name="results_item_not_selected">Não selecionado</string>
+    <string name="results_video_icon_description">Vídeo</string>
     <string name="results_selection_summary">%1$d selecionados • %2$s</string>
     <string name="results_delete_action">Apagar %1$d</string>
     <string name="results_delete_confirm_title_trash">Mover os itens selecionados para a lixeira?</string>
@@ -138,4 +141,9 @@
     <string name="classifier_error_service_unavailable">O serviço de classificação está temporariamente indisponível.</string>
     <string name="classifier_error_empty_response">A imagem não pôde ser categorizada.</string>
     <string name="classifier_error_unexpected">Ocorreu um erro inesperado durante a classificação.</string>
+
+    <!-- Scan errors -->
+    <string name="scan_error_unexpected">Ocorreu um erro inesperado durante o scan.</string>
+    <string name="scan_error_permission_revoked">As permissões de mídia foram revogadas.</string>
+    <string name="scan_error_media_unavailable">O armazenamento de mídia está indisponível no momento.</string>
 </resources>

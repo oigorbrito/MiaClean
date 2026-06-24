@@ -37,6 +37,9 @@
     <string name="results_preview_close">Close</string>
     <string name="results_select_duplicates">Select duplicates</string>
     <string name="results_clear_selection">Clear</string>
+    <string name="results_item_selected">Selected</string>
+    <string name="results_item_not_selected">Not selected</string>
+    <string name="results_video_icon_description">Video</string>
     <string name="results_selection_summary">%1$d selected • %2$s</string>
     <string name="results_delete_action">Delete %1$d</string>
     <string name="results_delete_confirm_title_trash">Move selected items to trash?</string>
@@ -138,5 +141,10 @@
     <string name="classifier_error_service_unavailable">The classification service is temporarily unavailable.</string>
     <string name="classifier_error_empty_response">The image could not be categorized.</string>
     <string name="classifier_error_unexpected">An unexpected error occurred during classification.</string>
+
+    <!-- Scan errors -->
+    <string name="scan_error_unexpected">An unexpected error occurred during the scan.</string>
+    <string name="scan_error_permission_revoked">Media permissions were revoked.</string>
+    <string name="scan_error_media_unavailable">The media storage is currently unavailable.</string>
 </resources>
 

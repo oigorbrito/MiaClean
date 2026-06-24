@@ -76,5 +76,5 @@ sealed interface ScanProgress {
         /** Optional friendly error message resource if classification issues occurred but didn't stop the scan. */
         val classificationErrorResId: Int? = null,
     ) : ScanProgress
-    data class Failed(val reason: String) : ScanProgress
+    data class Failed(val errorResId: Int) : ScanProgress
 }
