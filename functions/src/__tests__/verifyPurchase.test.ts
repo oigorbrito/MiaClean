@@ -68,6 +68,7 @@ describe("verifyPurchase HTTP handler", () => {
       playApi: fakePlayApi(),
       cache: createInMemoryCache(),
       now: () => NOW,
+      verifyAppCheckToken: jest.fn(async () => ({})),
     });
     const req = { ...fakeRequest({}), method: "GET" };
     const res = fakeResponse();
@@ -82,6 +83,7 @@ describe("verifyPurchase HTTP handler", () => {
       playApi: fakePlayApi(),
       cache: createInMemoryCache(),
       now: () => NOW,
+      verifyAppCheckToken: jest.fn(async () => ({})),
     });
     const req = fakeRequest({
       packageName: "com.evil.app",
@@ -102,6 +104,7 @@ describe("verifyPurchase HTTP handler", () => {
       playApi: fakePlayApi(),
       cache: createInMemoryCache(),
       now: () => NOW,
+      verifyAppCheckToken: jest.fn(async () => ({})),
     });
     const req = fakeRequest({
       packageName: "com.miaclean.app",
@@ -131,6 +134,7 @@ describe("verifyPurchase HTTP handler", () => {
       playApi,
       cache: createInMemoryCache(),
       now: () => NOW,
+      verifyAppCheckToken: jest.fn(async () => ({})),
     });
     const req = fakeRequest({
       packageName: "com.miaclean.app",
@@ -174,6 +178,7 @@ describe("verifyPurchase HTTP handler", () => {
       playApi,
       cache: createInMemoryCache(),
       now: () => NOW,
+      verifyAppCheckToken: jest.fn(async () => ({})),
     });
     const req = fakeRequest({
       packageName: "com.miaclean.app",
@@ -200,6 +205,7 @@ describe("verifyPurchase HTTP handler", () => {
       playApi: fakePlayApi(),
       cache: createInMemoryCache(),
       now: () => NOW,
+      verifyAppCheckToken: jest.fn(async () => ({})),
     });
     const req = fakeRequest({
       packageName: "com.miaclean.app",
@@ -241,6 +247,7 @@ describe("verifyPurchase HTTP handler", () => {
       playApi,
       cache,
       now: () => NOW,
+      verifyAppCheckToken: jest.fn(async () => ({})),
     });
     const req = fakeRequest({
       packageName: "com.miaclean.app",
@@ -270,6 +277,7 @@ describe("verifyPurchase HTTP handler", () => {
       playApi: fakePlayApi(),
       cache: createInMemoryCache(),
       now: () => NOW,
+      verifyAppCheckToken: jest.fn(async () => ({})),
     });
     const req = fakeRequest({
       packageName: "com.miaclean.app",
@@ -306,6 +314,7 @@ describe("verifyPurchase HTTP handler", () => {
       playApi,
       cache,
       now: () => NOW,
+      verifyAppCheckToken: jest.fn(async () => ({})),
     });
     const req = fakeRequest({
       packageName: "com.miaclean.app",
@@ -325,5 +334,48 @@ describe("verifyPurchase HTTP handler", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await handler(req as any, res as any);
     expect((res.body as VerifyPurchaseResponse).isPro).toBe(true);
+  });
+
+  it("rejects invalid App Check tokens when ENFORCE_APP_CHECK is true", async () => {
+    process.env.ENFORCE_APP_CHECK = "true";
+    const verifyAppCheckToken = jest.fn(async () => {
+      throw new Error("invalid token");
+    });
+    const handler = makeVerifyPurchaseHandler({
+      config: readRuntimeConfig(),
+      playApi: fakePlayApi(),
+      cache: createInMemoryCache(),
+      now: () => NOW,
+      verifyAppCheckToken,
+    });
+    const req = fakeRequest({}, { "X-Firebase-AppCheck": "bad-token" });
+    const res = fakeResponse();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await handler(req as any, res as any);
+    expect(res.statusCode).toBe(401);
+    expect(verifyAppCheckToken).toHaveBeenCalledWith("bad-token");
+  });
+
+  it("enforces MAX_PURCHASES_PER_REQUEST limit", async () => {
+    const handler = makeVerifyPurchaseHandler({
+      config: readRuntimeConfig(),
+      playApi: fakePlayApi(),
+      cache: createInMemoryCache(),
+      now: () => NOW,
+      verifyAppCheckToken: jest.fn(async () => ({})),
+    });
+    const req = fakeRequest({
+      packageName: "com.miaclean.app",
+      localIsPro: false,
+      purchases: Array(11).fill({
+        purchaseToken: "token",
+        products: ["pro_monthly"],
+      }),
+    });
+    const res = fakeResponse();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await handler(req as any, res as any);
+    expect(res.statusCode).toBe(400);
+    expect((res.body as VerifyPurchaseResponse).reason).toBe("too-many-purchases");
   });
 });
