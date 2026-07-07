@@ -2,11 +2,11 @@ package com.miaclean.app.data
 
 import android.net.Uri
 import com.miaclean.app.R
+import com.miaclean.app.data.classify.ClassifierEventLogger
 import com.miaclean.app.data.classify.ErrorCategory
 import com.miaclean.app.data.classify.MediaClassifier
 import com.miaclean.app.data.classify.MemeDetector
 import com.miaclean.app.data.classify.SelfieDetector
-import com.miaclean.app.data.classify.ClassifierEventLogger
 import com.miaclean.app.data.db.MediaHashDao
 import com.miaclean.app.data.hash.Md5Hasher
 import com.miaclean.app.data.hash.PerceptualHasher
@@ -16,18 +16,33 @@ import com.miaclean.app.data.scan.SafWhatsAppScanner
 import com.miaclean.app.domain.MediaCategory
 import com.miaclean.app.domain.MediaItem
 import com.miaclean.app.domain.ScanProgress
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.coEvery
-import java.io.FileNotFoundException
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.After
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ScanRepositoryHardeningTest {
+
+    @Before
+    fun setup() {
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } returns mockk(relaxed = true)
+    }
+
+    @After
+    fun tearDown() {
+        unmockkStatic(Uri::class)
+    }
 
     private val mediaStoreScanner = mockk<MediaStoreScanner>()
     private val safScanner = mockk<SafWhatsAppScanner>()
@@ -41,53 +56,47 @@ class ScanRepositoryHardeningTest {
     private val dao = mockk<MediaHashDao>()
 
     @Test
-    fun `permission revoked during scan emits retryable failure`() = runTest {
+    fun `permission revoked during scan throws exception`() = runTest {
         every { mediaStoreScanner.scanAll() } throws SecurityException("permission revoked")
         every { safScanner.scan(any()) } returns emptyList()
 
-        val emissions = repository().scan().toList()
-
-        assertEquals(
-            listOf(
-                ScanProgress.Running(0, 0),
-                ScanProgress.Failed(R.string.scan_error_permission_revoked),
-            ),
-            emissions,
-        )
+        val error = try {
+            repository().scan().toList()
+            null
+        } catch (t: Throwable) {
+            t
+        }
+        assertTrue(error is SecurityException)
     }
 
     @Test
-    fun `inaccessible media emits retryable failure`() = runTest {
+    fun `inaccessible media throws exception`() = runTest {
         val item = mediaItem()
         stubHappyPath(item)
-        every { md5Hasher.hash(any()) } throws FileNotFoundException("gone")
+        every { md5Hasher.hash(any()) } throws java.io.FileNotFoundException("gone")
 
-        val emissions = repository().scan().toList()
-
-        assertEquals(
-            listOf(
-                ScanProgress.Running(0, 0),
-                ScanProgress.Failed(R.string.scan_error_media_unavailable),
-            ),
-            emissions,
-        )
+        val error = try {
+            repository().scan().toList()
+            null
+        } catch (t: Throwable) {
+            t
+        }
+        assertTrue(error is java.io.FileNotFoundException)
     }
 
     @Test
-    fun `unexpected pipeline exception emits unexpected failure`() = runTest {
+    fun `unexpected pipeline exception throws exception`() = runTest {
         val item = mediaItem()
         stubHappyPath(item)
         coEveryUpsertCrash()
 
-        val emissions = repository().scan().toList()
-
-        assertEquals(
-            listOf(
-                ScanProgress.Running(0, 0),
-                ScanProgress.Failed(R.string.scan_error_unexpected),
-            ),
-            emissions,
-        )
+        val error = try {
+            repository().scan().toList()
+            null
+        } catch (t: Throwable) {
+            t
+        }
+        assertTrue(error is IllegalStateException)
     }
 
     @Test
@@ -146,7 +155,7 @@ class ScanRepositoryHardeningTest {
 
     private fun mediaItem() = MediaItem(
         id = 42L,
-        uri = Uri.parse("content://media/external/images/media/42").toString(),
+        uri = "content://media/external/images/media/42",
         displayName = "IMG_0042.jpg",
         mimeType = "image/jpeg",
         sizeBytes = 1024L,

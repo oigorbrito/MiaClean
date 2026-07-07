@@ -295,6 +295,7 @@ fun ResultsScreen(
                             onLongPressThumbnail = { item ->
                                 viewModel.toggleSelection(item.id)
                             },
+                            onToggleGroupSelection = { viewModel.toggleGroupSelection(it) },
                         )
                     }
                 }
@@ -461,6 +462,7 @@ private fun GroupCard(
     selection: Set<Long>,
     onTapThumbnail: (MediaItem) -> Unit,
     onLongPressThumbnail: (MediaItem) -> Unit,
+    onToggleGroupSelection: (DuplicateGroup) -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -480,7 +482,7 @@ private fun GroupCard(
                     modifier = Modifier.weight(1f),
                 )
                 AssistChip(
-                    onClick = {},
+                    onClick = { onToggleGroupSelection(group) },
                     label = { Text(group.dominantCategory.displayLabel()) },
                     colors = AssistChipDefaults.assistChipColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
