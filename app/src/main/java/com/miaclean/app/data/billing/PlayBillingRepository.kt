@@ -24,7 +24,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.ConcurrentHashMap
@@ -205,7 +204,7 @@ class PlayBillingRepository @Inject constructor(
         when (result.responseCode) {
             BillingClient.BillingResponseCode.OK -> {
                 val list = purchases.orEmpty()
-                scope.launch { handlePurchasesInternal(list) }
+                scope.launch { handlePurchases(list) }
             }
             BillingClient.BillingResponseCode.USER_CANCELED -> {
                 Log.i(TAG, "Purchase flow cancelled by user")
@@ -352,45 +351,6 @@ class PlayBillingRepository @Inject constructor(
         handlePurchases(subs + inApp)
     }
 
-    private suspend fun handlePurchasesSuspend(purchases: List<Purchase>) {
-        val verified = purchases.filter { verifier.verify(it.originalJson, it.signature) }
-        if (verified.isEmpty()) return
-
-        val unacknowledged = PurchaseMapper.unacknowledgedProPurchases(verified, proProductIds)
-        val localIsPro = PurchaseMapper.isPro(verified, proProductIds)
-        val serverIsPro = billingEntitlementApi.resolveIsPro(
-            purchases = verified,
-            localIsPro = localIsPro,
-        )
-
-        if (serverIsPro != null) {
-            val now = System.currentTimeMillis()
-            lastServerIsPro = serverIsPro
-            lastServerDecisionMs = now
-            serverDecisionHydrated = true
-            entitlementRepository.recordServerDecision(serverIsPro, now)
-            Log.i(TAG, "Entitlement resolved from backend: isPro=$serverIsPro")
-            entitlementRepository.setProFromPurchase(serverIsPro)
-        } else {
-            val resolved = resolveWithServerGraceFallback(localIsPro)
-            Log.i(TAG, "Entitlement resolved locally (backend unavailable): isPro=$resolved")
-            entitlementRepository.setProFromPurchase(resolved)
-        }
-
-        unacknowledged.forEach { acknowledge(it) }
-    }
-
-    /**
-     * Internal wrapper used by the PurchasesUpdatedListener to invoke handlePurchases.
-     */
-    private fun handlePurchases(purchases: List<Purchase>) = runBlocking {
-        handlePurchasesSuspend(purchases)
-    }
-
-    private suspend fun handlePurchasesInternal(purchases: List<Purchase>) {
-        handlePurchasesSuspend(purchases)
-    }
-
     /**
      * Returns the list of purchases for [productType], or `null` if the underlying
      * `queryPurchasesAsync` failed. Callers must treat `null` as "unknown — do not mutate
@@ -413,6 +373,32 @@ class PlayBillingRepository @Inject constructor(
                     cont.resume(null)
                 }
             }
+        }
+    }
+
+    private suspend fun handlePurchases(purchases: List<Purchase>) {
+        val verified = purchases.filter {
+            verifier.verify(it.originalJson, it.signature)
+        }
+        val unacknowledged = PurchaseMapper.unacknowledgedProPurchases(verified, proProductIds)
+        unacknowledged.forEach { acknowledge(it) }
+        val localIsPro = PurchaseMapper.isPro(verified, proProductIds)
+        val serverIsPro = billingEntitlementApi.resolveIsPro(
+            purchases = verified,
+            localIsPro = localIsPro,
+        )
+        if (serverIsPro != null) {
+            val now = System.currentTimeMillis()
+            lastServerIsPro = serverIsPro
+            lastServerDecisionMs = now
+            serverDecisionHydrated = true
+            entitlementRepository.recordServerDecision(serverIsPro, now)
+            Log.i(TAG, "Entitlement resolved from backend: isPro=$serverIsPro")
+            entitlementRepository.setProFromPurchase(serverIsPro)
+        } else {
+            val resolved = resolveWithServerGraceFallback(localIsPro)
+            Log.i(TAG, "Entitlement resolved locally (backend unavailable): isPro=$resolved")
+            entitlementRepository.setProFromPurchase(resolved)
         }
     }
 

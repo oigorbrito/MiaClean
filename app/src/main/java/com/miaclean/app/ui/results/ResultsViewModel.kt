@@ -218,20 +218,6 @@ class ResultsViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Toggle selection of an entire group. If all items of the group are already selected,
-     * they will be deselected; otherwise the whole group becomes selected.
-     */
-    fun toggleGroupSelection(group: DuplicateGroup) {
-        val ids = group.items.map { it.id }.toSet()
-        val current = _selection.value
-        _selection.value = if (ids.all { it in current }) {
-            current - ids
-        } else {
-            current + ids
-        }
-    }
-
     fun clearSelection() {
         _selection.value = emptySet()
     }

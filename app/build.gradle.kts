@@ -164,8 +164,6 @@ dependencies {
     testImplementation(libs.json)
     testImplementation(libs.mockk)
     testImplementation(libs.coroutines.test)
-    testImplementation(kotlin("test"))
-    testImplementation("app.cash.turbine:turbine:0.12.1")
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.test.espresso)
 }

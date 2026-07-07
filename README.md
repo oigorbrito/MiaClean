@@ -63,7 +63,6 @@ com.miaclean.app
 - JDK 17
 - Android SDK (Platform 34)
 - `local.properties` with `sdk.dir` configured.
-- **ML Models**: The required `.tflite` models (like `face_detector.tflite`) are automatically downloaded during the build process via Gradle tasks. No manual setup is needed.
 
 ### Commands
 
