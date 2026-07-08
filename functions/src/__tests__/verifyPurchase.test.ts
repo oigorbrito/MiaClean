@@ -102,6 +102,7 @@ describe("verifyPurchase HTTP handler", () => {
       playApi: fakePlayApi(),
       cache: createInMemoryCache(),
       now: () => NOW,
+      verifyAppCheckToken: jest.fn(async () => undefined),
     });
     const req = fakeRequest({
       packageName: "com.miaclean.app",
@@ -280,6 +281,114 @@ describe("verifyPurchase HTTP handler", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await handler(req as any, res as any);
     expect(res.statusCode).toBe(401);
+  });
+
+  it("rejects invalid App Check tokens when ENFORCE_APP_CHECK is true", async () => {
+    process.env.ENFORCE_APP_CHECK = "true";
+    const verifyAppCheckToken = jest.fn(async () => {
+      throw new Error("invalid token");
+    });
+    const handler = makeVerifyPurchaseHandler({
+      config: readRuntimeConfig(),
+      playApi: fakePlayApi(),
+      cache: createInMemoryCache(),
+      now: () => NOW,
+      verifyAppCheckToken,
+    });
+    const req = fakeRequest(
+      {
+        packageName: "com.miaclean.app",
+        localIsPro: false,
+        purchases: [],
+      },
+      { "X-Firebase-AppCheck": "bad-token" },
+    );
+    const res = fakeResponse();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await handler(req as any, res as any);
+    expect(res.statusCode).toBe(401);
+    expect(verifyAppCheckToken).toHaveBeenCalledWith("bad-token");
+  });
+
+  it("accepts valid App Check tokens when ENFORCE_APP_CHECK is true", async () => {
+    process.env.ENFORCE_APP_CHECK = "true";
+    const verifyAppCheckToken = jest.fn(async () => undefined);
+    const handler = makeVerifyPurchaseHandler({
+      config: readRuntimeConfig(),
+      playApi: fakePlayApi(),
+      cache: createInMemoryCache(),
+      now: () => NOW,
+      verifyAppCheckToken,
+    });
+    const req = fakeRequest(
+      {
+        packageName: "com.miaclean.app",
+        localIsPro: false,
+        purchases: [],
+      },
+      { "X-Firebase-AppCheck": "good-token" },
+    );
+    const res = fakeResponse();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await handler(req as any, res as any);
+    expect(res.statusCode).toBe(200);
+    expect(verifyAppCheckToken).toHaveBeenCalledWith("good-token");
+  });
+
+  it("rejects requests with more than 10 purchases", async () => {
+    const handler = makeVerifyPurchaseHandler({
+      config: readRuntimeConfig(),
+      playApi: fakePlayApi(),
+      cache: createInMemoryCache(),
+      now: () => NOW,
+    });
+    const purchases = Array.from({ length: 11 }, (_, i) => ({
+      purchaseToken: `token-${i}`,
+      products: ["pro_monthly"],
+      purchaseState: 1,
+      isAcknowledged: true,
+      purchaseTime: NOW,
+    }));
+    const req = fakeRequest({
+      packageName: "com.miaclean.app",
+      localIsPro: false,
+      purchases,
+    });
+    const res = fakeResponse();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await handler(req as any, res as any);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects requests with malformed body", async () => {
+    const handler = makeVerifyPurchaseHandler({
+      config: readRuntimeConfig(),
+      playApi: fakePlayApi(),
+      cache: createInMemoryCache(),
+      now: () => NOW,
+    });
+    const req = fakeRequest("not-json");
+    const res = fakeResponse();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await handler(req as any, res as any);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("handles missing purchases array gracefully", async () => {
+    const handler = makeVerifyPurchaseHandler({
+      config: readRuntimeConfig(),
+      playApi: fakePlayApi(),
+      cache: createInMemoryCache(),
+      now: () => NOW,
+    });
+    const req = fakeRequest({
+      packageName: "com.miaclean.app",
+      localIsPro: false,
+    });
+    const res = fakeResponse();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await handler(req as any, res as any);
+    expect(res.statusCode).toBe(400);
   });
 
   it("falls back to cached decision when Play API throws", async () => {

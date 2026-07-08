@@ -44,6 +44,8 @@ export interface VerifyPurchaseDeps {
   cache: EntitlementCacheStore;
   /** Wall clock injection point so tests don't need fake timers. */
   now: () => number;
+  /** Injected App Check verification function. */
+  verifyAppCheckToken?: (token: string) => Promise<void>;
 }
 
 /**
@@ -65,11 +67,25 @@ export function makeVerifyPurchaseHandler(deps: VerifyPurchaseDeps) {
       res.status(405).json({ isPro: false, reason: "play-api-error" });
       return;
     }
-    if (deps.config.enforceAppCheck && !req.header("X-Firebase-AppCheck")) {
-      // App Check enabled but no token attached. Reject with 401; the app's retry loop will
-      // give up after the configured attempts and the user falls back to local entitlement.
-      res.status(401).json({ isPro: false, reason: "play-api-error" });
-      return;
+
+    if (deps.config.enforceAppCheck) {
+      const token = req.header("X-Firebase-AppCheck");
+      if (!token) {
+        console.warn("App Check enforcement enabled but header missing");
+        res.status(401).json({ isPro: false, reason: "play-api-error" });
+        return;
+      }
+      try {
+        if (deps.verifyAppCheckToken) {
+          await deps.verifyAppCheckToken(token);
+        }
+      } catch (err) {
+        console.warn("App Check token verification failed", {
+          err: err instanceof Error ? err.message : "unknown",
+        });
+        res.status(401).json({ isPro: false, reason: "play-api-error" });
+        return;
+      }
     }
 
     const body = parseRequestBody(req.body);
@@ -85,6 +101,13 @@ export function makeVerifyPurchaseHandler(deps: VerifyPurchaseDeps) {
 
     if (body.purchases.length === 0) {
       res.status(200).json({ isPro: false, reason: "no-purchases" });
+      return;
+    }
+
+    if (body.purchases.length > 10) {
+      // DoS protection: reject requests with too many purchases.
+      console.warn("Rejected request with excessive purchase count", { count: body.purchases.length });
+      res.status(400).json({ isPro: false, reason: "play-api-error" });
       return;
     }
 
@@ -282,7 +305,10 @@ async function safeReadCache(
   try {
     return await cache.read({ packageName, purchaseToken });
   } catch (err) {
-    console.warn("Cache read failed; ignoring", { err });
+    console.warn("Cache read failed; ignoring", {
+      err: err instanceof Error ? err.message : "unknown",
+      tokenMasked: maskToken(purchaseToken),
+    });
     return null;
   }
 }
@@ -296,8 +322,15 @@ async function safeWriteCache(
   try {
     await cache.write({ packageName, purchaseToken }, doc);
   } catch (err) {
-    console.warn("Cache write failed; non-fatal", { err });
+    console.warn("Cache write failed; non-fatal", {
+      err: err instanceof Error ? err.message : "unknown",
+      tokenMasked: maskToken(purchaseToken),
+    });
   }
+}
+
+function maskToken(token: string): string {
+  return token.length > 12 ? token.slice(0, 12) + "..." : "***";
 }
 
 async function safeAcknowledgeSubscription(

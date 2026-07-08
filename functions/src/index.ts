@@ -13,6 +13,7 @@
  */
 
 import { initializeApp } from "firebase-admin/app";
+import { getAppCheck } from "firebase-admin/app-check";
 import { onRequest } from "firebase-functions/v2/https";
 import { onMessagePublished } from "firebase-functions/v2/pubsub";
 
@@ -83,6 +84,7 @@ export const verifyPurchase = onRequest(
       playApi: getPlayApi(playServiceAccountSecret.value()),
       cache: getCache(),
       now: () => Date.now(),
+      verifyAppCheckToken: (token) => getAppCheck().verifyToken(token).then(() => undefined),
     });
     await handler(req, res);
   },
