@@ -218,6 +218,17 @@ class ResultsViewModel @Inject constructor(
         }
     }
 
+    fun toggleGroupSelection(group: DuplicateGroup) {
+        val groupIds = group.items.map { it.id }.toSet()
+        val currentSelection = _selection.value
+        val allSelected = groupIds.all { it in currentSelection }
+        _selection.value = if (allSelected) {
+            currentSelection - groupIds
+        } else {
+            currentSelection + groupIds
+        }
+    }
+
     fun clearSelection() {
         _selection.value = emptySet()
     }

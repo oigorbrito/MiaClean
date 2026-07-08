@@ -37,6 +37,7 @@
     <string name="results_preview_close">Fechar</string>
     <string name="results_select_duplicates">Selecionar duplicadas</string>
     <string name="results_clear_selection">Limpar</string>
+    <string name="results_group_select">Selecionar tudo no grupo</string>
     <string name="results_item_selected">Selecionado: %1$s</string>
     <string name="results_item_not_selected">Não selecionado: %1$s</string>
     <string name="results_video_icon_description">Vídeo</string>

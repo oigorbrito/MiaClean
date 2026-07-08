@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarDuration
@@ -52,6 +53,8 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -285,6 +288,7 @@ fun ResultsScreen(
                         GroupCard(
                             group = group,
                             selection = selection,
+                            onToggleGroupSelection = viewModel::toggleGroupSelection,
                             onTapThumbnail = { item ->
                                 if (selection.isEmpty()) {
                                     preview = item
@@ -459,6 +463,7 @@ private fun MediaCategory.displayLabel(): String = stringResource(
 private fun GroupCard(
     group: DuplicateGroup,
     selection: Set<Long>,
+    onToggleGroupSelection: (DuplicateGroup) -> Unit,
     onTapThumbnail: (MediaItem) -> Unit,
     onLongPressThumbnail: (MediaItem) -> Unit,
 ) {
@@ -469,6 +474,14 @@ private fun GroupCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                val groupSelectDescription = stringResource(R.string.results_group_select)
+                Checkbox(
+                    checked = group.items.all { it.id in selection },
+                    onCheckedChange = { onToggleGroupSelection(group) },
+                    modifier = Modifier
+                        .padding(end = 4.dp)
+                        .semantics { contentDescription = groupSelectDescription },
+                )
                 Text(
                     text = stringResource(
                         R.string.results_group,
