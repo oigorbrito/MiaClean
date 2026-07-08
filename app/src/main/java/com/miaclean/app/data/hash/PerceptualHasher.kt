@@ -27,11 +27,30 @@ class PerceptualHasher @Inject constructor(
         val tmp = File.createTempFile("phash_", ".jpg", cacheDir)
         return try {
             context.contentResolver.openInputStream(uri)?.use { input ->
-                val bitmap = BitmapFactory.decodeStream(input) ?: return null
-                tmp.outputStream().use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+                // Bolt optimization: Downscale before re-encoding to save memory and CPU.
+                // This improves scan performance for high-resolution images.
+                // We use inJustDecodeBounds to get the dimensions without loading the full bitmap.
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeStream(input, null, bounds)
+
+                val longEdge = maxOf(bounds.outWidth, bounds.outHeight)
+                var sample = 1
+                if (longEdge > PHASH_TARGET_PX) {
+                    while (longEdge / sample > PHASH_TARGET_PX) sample *= 2
                 }
-                bitmap.recycle()
+
+                // We must reopen the stream because decodeStream consumes it.
+                context.contentResolver.openInputStream(uri)?.use { secondInput ->
+                    val options = BitmapFactory.Options().apply { inSampleSize = sample }
+                    val bitmap = BitmapFactory.decodeStream(secondInput, null, options) ?: return null
+                    try {
+                        tmp.outputStream().use { out ->
+                            bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+                        }
+                    } finally {
+                        bitmap.recycle()
+                    }
+                } ?: return null
             } ?: return null
             // Library computes the pair hash for (a, b); loading the same path twice yields the
             // hash once via getHashOne().
@@ -59,5 +78,6 @@ class PerceptualHasher @Inject constructor(
     private companion object {
         const val JPEG_QUALITY = 85
         const val DEFAULT_THRESHOLD = 5 // bits
+        const val PHASH_TARGET_PX = 320
     }
 }
