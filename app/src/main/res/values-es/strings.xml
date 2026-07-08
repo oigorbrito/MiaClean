@@ -131,6 +131,11 @@
     <string name="widget_scan_again">Escanear de nuevo</string>
     <string name="widget_reclaimable">~%1$s recuperables</string>
 
+    <!-- Scan errors -->
+    <string name="scan_error_permission_revoked">Se revocó el permiso de medios. Por favor, concede acceso e inténtalo de nuevo.</string>
+    <string name="scan_error_media_unavailable">Los archivos de medios no están disponibles actualmente. Comprueba si la tarjeta SD está montada.</string>
+    <string name="scan_error_unexpected">Ocurrió un error inesperado durante el escaneo.</string>
+
     <!-- Classification errors -->
     <string name="classifier_error_image_invalid">El archivo de imagen parece estar dañado o no es válido.</string>
     <string name="classifier_error_timeout">El análisis tardó demasiado. Por favor, inténtelo de nuevo.</string>

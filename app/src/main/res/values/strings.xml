@@ -131,6 +131,11 @@
     <string name="widget_scan_again">Scan again</string>
     <string name="widget_reclaimable">~%1$s reclaimable</string>
 
+    <!-- Scan errors -->
+    <string name="scan_error_permission_revoked">Media permission was revoked. Please grant access and try again.</string>
+    <string name="scan_error_media_unavailable">The media files are currently unavailable. Check if the SD card is mounted.</string>
+    <string name="scan_error_unexpected">An unexpected error occurred during the scan.</string>
+
     <!-- Classification errors -->
     <string name="classifier_error_image_invalid">The image file appears to be corrupted or invalid.</string>
     <string name="classifier_error_timeout">The analysis took too long. Please try again.</string>

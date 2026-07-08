@@ -10,7 +10,7 @@ class ScanWorkerTest {
     fun `unexpected scan failure maps to retry`() {
         assertEquals(
             androidx.work.ListenableWorker.Result.retry().javaClass,
-            scanFailureResult(R.string.scan_error_unexpected).javaClass,
+            ScanWorker.scanFailureResult(R.string.scan_error_unexpected).javaClass,
         )
     }
 
@@ -18,11 +18,11 @@ class ScanWorkerTest {
     fun `permission or io failure maps to failure`() {
         assertEquals(
             androidx.work.ListenableWorker.Result.failure().javaClass,
-            scanFailureResult(R.string.scan_error_permission_revoked).javaClass,
+            ScanWorker.scanFailureResult(R.string.scan_error_permission_revoked).javaClass,
         )
         assertEquals(
             androidx.work.ListenableWorker.Result.failure().javaClass,
-            scanFailureResult(R.string.scan_error_media_unavailable).javaClass,
+            ScanWorker.scanFailureResult(R.string.scan_error_media_unavailable).javaClass,
         )
     }
 }
