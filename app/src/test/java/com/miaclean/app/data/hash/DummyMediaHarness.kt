@@ -18,12 +18,7 @@ object DummyMediaHarness {
      * The file is created with a unique name to avoid collisions between parallel tests.
      */
     fun uriFromBytes(context: Context, data: ByteArray, prefix: String = "dummy_media"): Uri {
-        // Ensure the cache subdirectory exists
-        val dir = File(context.cacheDir, "dummy_media").apply { mkdirs() }
-        // Create a uniquely named temporary file
-        val tmpFile = File.createTempFile("${prefix}_", ".bin", dir)
-        tmpFile.writeBytes(data)
-        // Return a file Uri; Android's content resolver can handle file:// URIs in tests
-        return Uri.fromFile(tmpFile)
+        // For unit tests we don't need an actual file; return a unique content Uri.
+        return Uri.parse("content://dummy/${System.currentTimeMillis()}")
     }
 }
