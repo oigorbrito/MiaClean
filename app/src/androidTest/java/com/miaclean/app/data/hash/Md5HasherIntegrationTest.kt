@@ -18,7 +18,7 @@ class Md5HasherIntegrationTest {
     }
 
     @Test
-    fun `hash dummy media matches known vector`() {
+    fun hashDummyMediaMatchesKnownVector() {
         val input = "hello world".toByteArray()
         val expected = "5eb63bbbe01eeed093cb22bb8f5acdc3"
         val uri = DummyMediaHarness.uriFromBytes(context, input)
