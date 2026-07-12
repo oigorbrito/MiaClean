@@ -10,7 +10,7 @@ class PerceptualHasherIntegrationTest {
     private val hasher = PerceptualHasher(context)
 
     @Test
-    fun `hash returns null for non-image data`() {
+    fun hashReturnsNullForNonImageData() {
         // Create dummy non-image byte array
         val data = ByteArray(100) { 0 }
         val uri = DummyMediaHarness.uriFromBytes(context, data, "non_image")
