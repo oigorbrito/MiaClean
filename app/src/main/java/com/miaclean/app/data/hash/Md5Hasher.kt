@@ -2,6 +2,8 @@ package com.miaclean.app.data.hash
 
 import android.content.Context
 import android.net.Uri
+import com.miaclean.shared.hash.Hasher
+import com.miaclean.shared.hash.MediaSource
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.InputStream
 import java.security.MessageDigest
@@ -15,9 +17,14 @@ import javax.inject.Singleton
 @Singleton
 class Md5Hasher @Inject constructor(
     @ApplicationContext private val context: Context,
-) {
+) : Hasher {
+    override fun hash(source: MediaSource): String? {
+        val androidSource = source as? AndroidMediaSource ?: return null
+        return context.contentResolver.openInputStream(androidSource.uri)?.use(::hashStream)
+    }
+
     fun hash(uri: Uri): String? {
-        return context.contentResolver.openInputStream(uri)?.use(::hashStream)
+        return hash(AndroidMediaSource(uri))
     }
 
     private fun hashStream(input: InputStream): String {
