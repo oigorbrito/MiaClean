@@ -22,3 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "mia-clean"
 include(":app")
+include(":shared")
