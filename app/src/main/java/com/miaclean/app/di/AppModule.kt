@@ -11,6 +11,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+import com.miaclean.app.data.classify.MediaClassifier
+
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
@@ -27,6 +29,6 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideMediaClassifier(): com.miaclean.app.data.classify.MediaClassifier =
-        com.miaclean.app.data.classify.MediaClassifier()
+    fun provideMediaClassifier(): MediaClassifier =
+        MediaClassifier()
 }
