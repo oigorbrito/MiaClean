@@ -75,7 +75,7 @@ class ScanRepositoryHardeningTest {
     fun `inaccessible media emits retryable failure`() = runTest {
         val item = mediaItem()
         stubHappyPath(item)
-        every { md5Hasher.hash(any()) } throws FileNotFoundException("gone")
+        every { md5Hasher.hash(any<Uri>()) } throws FileNotFoundException("gone")
 
         val emissions = repository().scan().toList()
 
@@ -144,7 +144,7 @@ class ScanRepositoryHardeningTest {
         every { safScanner.scan(any()) } returns emptyList()
         coEvery { dao.findAllMediaIds() } returns emptyList()
         coEvery { dao.findByMediaId(item.id) } returns null
-        every { md5Hasher.hash(any()) } returns "md5-${item.id}"
+        every { md5Hasher.hash(any<Uri>()) } returns "md5-${item.id}"
         every { perceptualHasher.hash(any()) } returns "phash-${item.id}"
         every { imageEmbedder.embed(any()) } returns null
         every { classifier.classify(item) } returns MediaCategory.Photo

@@ -173,6 +173,10 @@ kapt {
     correctErrorTypes = true
 }
 
+hilt {
+    enableAggregatingTask = true
+}
+
 // Downloads the MediaPipe Face Detector model into a generated assets directory on first build.
 // The detector no-ops gracefully when the asset is missing (see SelfieDetector), so CI without
 // internet still builds; it just doesn't get face-based selfie detection. Using a dedicated

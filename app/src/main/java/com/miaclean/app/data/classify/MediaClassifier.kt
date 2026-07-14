@@ -17,7 +17,7 @@ import javax.inject.Singleton
  * right rung.
  */
 @Singleton
-class MediaClassifier @Inject constructor() {
+class MediaClassifier {
 
     fun classify(item: MediaItem): MediaCategory {
         if (isDocument(item)) return MediaCategory.Document

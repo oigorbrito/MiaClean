@@ -24,4 +24,9 @@ object AppModule {
 
     @Provides
     fun provideMediaHashDao(db: MiaCleanDatabase): MediaHashDao = db.mediaHashDao()
+
+    @Provides
+    @Singleton
+    fun provideMediaClassifier(): com.miaclean.app.data.classify.MediaClassifier =
+        com.miaclean.app.data.classify.MediaClassifier()
 }
