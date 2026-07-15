@@ -1,16 +1,16 @@
 -- Merging decision tree log ---
 manifest
-ADDED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest3941831129016450124.xml:2:13-83
-INJECTED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest3941831129016450124.xml:2:13-83
+ADDED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17328950620044558144.xml:2:13-83
+INJECTED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17328950620044558144.xml:2:13-83
 	package
-		INJECTED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest3941831129016450124.xml
+		INJECTED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17328950620044558144.xml
 	xmlns:android
-		ADDED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest3941831129016450124.xml:2:23-81
+		ADDED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17328950620044558144.xml:2:23-81
 uses-sdk
-INJECTED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest3941831129016450124.xml reason: use-sdk injection requested
-INJECTED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest3941831129016450124.xml
-INJECTED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest3941831129016450124.xml
+INJECTED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17328950620044558144.xml reason: use-sdk injection requested
+INJECTED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17328950620044558144.xml
+INJECTED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17328950620044558144.xml
 	android:targetSdkVersion
-		INJECTED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest3941831129016450124.xml
+		INJECTED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17328950620044558144.xml
 	android:minSdkVersion
-		INJECTED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest3941831129016450124.xml
+		INJECTED from C:\Projetos\miaclean\shared\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17328950620044558144.xml

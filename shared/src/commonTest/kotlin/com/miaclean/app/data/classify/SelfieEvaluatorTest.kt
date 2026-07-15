@@ -68,7 +68,7 @@ class SelfieEvaluatorTest {
     }
 
     @Test
-    fun small_faces_do not_flag_selfie() {
+    fun small_faces_do_not_flag_selfie() {
         assertFalse(
             SelfieEvaluator.isSelfie(
                 empty().copy(faceCount = 1, largestFaceAreaRatio = 0.05f),
