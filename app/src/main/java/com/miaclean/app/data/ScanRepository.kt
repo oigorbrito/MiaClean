@@ -8,7 +8,8 @@ import com.miaclean.app.data.classify.MemeDetector
 import com.miaclean.app.data.classify.SelfieDetector
 import com.miaclean.app.data.db.MediaHashDao
 import com.miaclean.app.data.db.MediaHashEntity
-import com.miaclean.app.data.hash.Md5Hasher
+import com.miaclean.app.data.hash.AndroidMediaSource
+import com.miaclean.shared.hash.ExactHashOrchestrator
 import com.miaclean.app.data.hash.PerceptualHasher
 import com.miaclean.app.data.ml.ImageEmbedderWrapper
 import com.miaclean.app.data.scan.MediaStoreScanner
@@ -36,7 +37,7 @@ import javax.inject.Singleton
 class ScanRepository @Inject constructor(
     private val mediaStoreScanner: MediaStoreScanner,
     private val safScanner: SafWhatsAppScanner,
-    private val md5Hasher: Md5Hasher,
+    private val exactHashOrchestrator: ExactHashOrchestrator,
     private val perceptualHasher: PerceptualHasher,
     private val imageEmbedder: ImageEmbedderWrapper,
     private val classifier: MediaClassifier,
@@ -49,6 +50,7 @@ class ScanRepository @Inject constructor(
     fun scan(additionalSafTreeUris: List<Uri> = emptyList()): Flow<ScanProgress> = channelFlow {
         try {
             send(ScanProgress.Running(0, 0))
+
             val items = withContext(Dispatchers.IO) {
                 val base = mediaStoreScanner.scanAll()
                 val extra = additionalSafTreeUris.flatMap { safScanner.scan(it) }
@@ -71,7 +73,14 @@ class ScanRepository @Inject constructor(
                 items.forEachIndexed { index, item ->
                     if (item.id !in cachedIds) {
                         val uri = Uri.parse(item.uri)
-                        val md5 = md5Hasher.hash(uri)
+                        val hashResult = exactHashOrchestrator.calculateHash(AndroidMediaSource(uri))
+                        val md5 = when (hashResult) {
+                            is ExactHashOrchestrator.Result.Success -> hashResult.hash
+                            is ExactHashOrchestrator.Result.Failure -> {
+                                hashResult.exception?.let { throw it }
+                                null
+                            }
+                        }
                         val phash = if (item.mimeType.startsWith("image/")) {
                             perceptualHasher.hash(uri)
                         } else {

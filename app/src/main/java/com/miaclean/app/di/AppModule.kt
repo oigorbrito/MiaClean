@@ -12,6 +12,8 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 import com.miaclean.app.data.classify.MediaClassifier
+import com.miaclean.app.data.hash.Md5Hasher
+import com.miaclean.shared.hash.ExactHashOrchestrator
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -31,4 +33,9 @@ object AppModule {
     @Singleton
     fun provideMediaClassifier(): MediaClassifier =
         MediaClassifier()
+
+    @Provides
+    @Singleton
+    fun provideExactHashOrchestrator(md5Hasher: Md5Hasher): ExactHashOrchestrator =
+        ExactHashOrchestrator(md5Hasher)
 }
