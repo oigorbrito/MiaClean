@@ -47,6 +47,7 @@ class ExactHashOrchestratorTest {
         val result = orchestrator.calculateHash(source)
         assertTrue(result is ExactHashOrchestrator.Result.Failure)
         assertEquals(errorMessage, result.message)
+        assertTrue(result.exception is RuntimeException)
     }
 
     /**

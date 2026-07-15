@@ -8,7 +8,7 @@ import com.miaclean.app.data.classify.MemeDetector
 import com.miaclean.app.data.classify.SelfieDetector
 import com.miaclean.app.data.classify.ClassifierEventLogger
 import com.miaclean.app.data.db.MediaHashDao
-import com.miaclean.app.data.hash.Md5Hasher
+import com.miaclean.shared.hash.ExactHashOrchestrator
 import com.miaclean.app.data.hash.PerceptualHasher
 import com.miaclean.app.data.ml.ImageEmbedderWrapper
 import com.miaclean.app.data.scan.MediaStoreScanner
@@ -46,7 +46,7 @@ class ScanRepositoryHardeningTest {
 
     private val mediaStoreScanner = mockk<MediaStoreScanner>()
     private val safScanner = mockk<SafWhatsAppScanner>()
-    private val md5Hasher = mockk<Md5Hasher>()
+    private val exactHashOrchestrator = mockk<ExactHashOrchestrator>()
     private val perceptualHasher = mockk<PerceptualHasher>()
     private val imageEmbedder = mockk<ImageEmbedderWrapper>()
     private val classifier = mockk<MediaClassifier>()
@@ -75,7 +75,7 @@ class ScanRepositoryHardeningTest {
     fun `inaccessible media emits retryable failure`() = runTest {
         val item = mediaItem()
         stubHappyPath(item)
-        every { md5Hasher.hash(any<Uri>()) } throws FileNotFoundException("gone")
+        every { exactHashOrchestrator.calculateHash(any()) } returns ExactHashOrchestrator.Result.Failure("gone", FileNotFoundException("gone"))
 
         val emissions = repository().scan().toList()
 
@@ -129,7 +129,7 @@ class ScanRepositoryHardeningTest {
     private fun repository() = ScanRepository(
         mediaStoreScanner = mediaStoreScanner,
         safScanner = safScanner,
-        md5Hasher = md5Hasher,
+        exactHashOrchestrator = exactHashOrchestrator,
         perceptualHasher = perceptualHasher,
         imageEmbedder = imageEmbedder,
         classifier = classifier,
@@ -144,7 +144,7 @@ class ScanRepositoryHardeningTest {
         every { safScanner.scan(any()) } returns emptyList()
         coEvery { dao.findAllMediaIds() } returns emptyList()
         coEvery { dao.findByMediaId(item.id) } returns null
-        every { md5Hasher.hash(any<Uri>()) } returns "md5-${item.id}"
+        every { exactHashOrchestrator.calculateHash(any()) } returns ExactHashOrchestrator.Result.Success("md5-${item.id}")
         every { perceptualHasher.hash(any()) } returns "phash-${item.id}"
         every { imageEmbedder.embed(any()) } returns null
         every { classifier.classify(item) } returns MediaCategory.Photo

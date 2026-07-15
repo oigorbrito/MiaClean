@@ -8,7 +8,7 @@ class ExactHashOrchestrator(private val hasher: Hasher) {
 
     sealed class Result {
         data class Success(val hash: String) : Result()
-        data class Failure(val message: String) : Result()
+        data class Failure(val message: String, val exception: Throwable? = null) : Result()
     }
 
     /**
@@ -24,7 +24,7 @@ class ExactHashOrchestrator(private val hasher: Hasher) {
                 Result.Failure("Hasher returned null digest for source: ${source.identifier}")
             }
         } catch (e: Exception) {
-            Result.Failure(e.message ?: "Unknown error occurred during hashing")
+            Result.Failure(e.message ?: "Unknown error occurred during hashing", e)
         }
     }
 }
