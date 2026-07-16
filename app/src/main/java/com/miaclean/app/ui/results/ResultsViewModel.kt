@@ -23,6 +23,7 @@ import com.miaclean.app.data.settings.SettingsRepository
 import com.miaclean.app.data.settings.DeleteStrategy
 import com.miaclean.app.domain.DuplicateGroup
 import com.miaclean.app.domain.MediaCategory
+import com.miaclean.shared.dedup.DuplicateOrchestrator
 import com.miaclean.app.widget.WidgetSummaryUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -49,6 +50,7 @@ class ResultsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val playBillingRepository: PlayBillingRepository,
     private val widgetSummaryUpdater: WidgetSummaryUpdater,
+    private val duplicateOrchestrator: DuplicateOrchestrator,
 ) : ViewModel() {
 
     private val freeDeletesPerMonthLimit: Int = BuildConfig.FREE_DELETES_PER_MONTH
@@ -239,9 +241,8 @@ class ResultsViewModel @Inject constructor(
      * only bulk-selects the screenshots.
      */
     fun selectAllDuplicatesExceptFirst() {
-        _selection.value = _selection.value + filteredGroups.value
-            .flatMap { group -> group.items.drop(1).map { it.id } }
-            .toSet()
+        val autoSelectedIds = duplicateOrchestrator.getAutoSelection(filteredGroups.value)
+        _selection.value = _selection.value + autoSelectedIds
     }
 
     fun setCategoryFilter(category: MediaCategory?) {

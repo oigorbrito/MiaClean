@@ -13,6 +13,7 @@ import javax.inject.Singleton
 
 import com.miaclean.app.data.classify.MediaClassifier
 import com.miaclean.app.data.hash.Md5Hasher
+import com.miaclean.shared.dedup.DuplicateOrchestrator
 import com.miaclean.shared.hash.ExactHashOrchestrator
 
 @Module
@@ -38,4 +39,16 @@ object AppModule {
     @Singleton
     fun provideExactHashOrchestrator(md5Hasher: Md5Hasher): ExactHashOrchestrator =
         ExactHashOrchestrator(md5Hasher)
+
+    @Provides
+    @Singleton
+    fun provideSelfieSignalsProvider(impl: com.miaclean.app.data.classify.SelfieDetector): com.miaclean.app.data.classify.SelfieSignalsProvider = impl
+
+    @Provides
+    @Singleton
+    fun provideMemeSignalsProvider(impl: com.miaclean.app.data.classify.MemeDetector): com.miaclean.app.data.classify.MemeSignalsProvider = impl
+
+    @Provides
+    @Singleton
+    fun provideDuplicateOrchestrator(): DuplicateOrchestrator = DuplicateOrchestrator()
 }
