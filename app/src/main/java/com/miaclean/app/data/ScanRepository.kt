@@ -4,8 +4,10 @@ import android.net.Uri
 import com.miaclean.app.data.classify.ClassifierEventLogger
 import com.miaclean.app.data.classify.ErrorCategory
 import com.miaclean.app.data.classify.MediaClassifier
-import com.miaclean.app.data.classify.MemeDetector
-import com.miaclean.app.data.classify.SelfieDetector
+import com.miaclean.app.data.classify.MemeSignalsProvider
+import com.miaclean.app.data.classify.SelfieSignalsProvider
+import com.miaclean.app.data.classify.MemeEvaluator
+import com.miaclean.app.data.classify.SelfieEvaluator
 import com.miaclean.app.data.db.MediaHashDao
 import com.miaclean.app.data.db.MediaHashEntity
 import com.miaclean.app.data.hash.AndroidMediaSource
@@ -41,8 +43,8 @@ class ScanRepository @Inject constructor(
     private val perceptualHasher: PerceptualHasher,
     private val imageEmbedder: ImageEmbedderWrapper,
     private val classifier: MediaClassifier,
-    private val selfieDetector: SelfieDetector,
-    private val memeDetector: MemeDetector,
+    private val selfieSignalsProvider: SelfieSignalsProvider,
+    private val memeSignalsProvider: MemeSignalsProvider,
     private val logger: ClassifierEventLogger,
     private val dao: MediaHashDao,
 ) {
@@ -167,12 +169,14 @@ class ScanRepository @Inject constructor(
             return base
         }
 
-        if (selfieDetector.isSelfie(uri, item.sizeBytes, item.id, onError)) {
+        val selfieSignals = selfieSignalsProvider.provideSignals(item, onError)
+        if (selfieSignals != null && SelfieEvaluator.isSelfie(selfieSignals)) {
             logger.logSuccess("ScanRepositoryPipeline", item.id, MediaCategory.Selfie.name, System.currentTimeMillis() - startTime)
             return MediaCategory.Selfie
         }
 
-        if (memeDetector.isMeme(uri, item.sizeBytes, item.id, onError)) {
+        val memeSignals = memeSignalsProvider.provideSignals(item, onError)
+        if (memeSignals != null && MemeEvaluator.isMeme(memeSignals)) {
             logger.logSuccess("ScanRepositoryPipeline", item.id, MediaCategory.Meme.name, System.currentTimeMillis() - startTime)
             return MediaCategory.Meme
         }
@@ -183,120 +187,28 @@ class ScanRepository @Inject constructor(
 
     private suspend fun buildGroups(): List<DuplicateGroup> {
         val exact = dao.findExactDuplicates()
-        val exactByMd5 = exact.groupBy { it.md5 }
-        val exactGroups = exactByMd5.values
-            .filter { it.size > 1 }
-            .mapIndexed { index, list ->
-                DuplicateGroup(
-                    groupId = index.toLong(),
-                    strategy = DuplicateGroup.Strategy.EXACT_MD5,
-                    items = list.map(MediaHashEntity::toMediaItem),
-                    totalBytes = list.sumOf { it.sizeBytes },
-                )
-            }
-
         val pHashRows = dao.findAllWithPHash()
-        val exactIds = exact.map { it.mediaId }.toSet()
-        val perceptualCandidates = pHashRows.filter { it.mediaId !in exactIds }
-        val perceptualGroups = buildPerceptualGroups(perceptualCandidates, offset = exactGroups.size)
-        val groupedByPerceptual = perceptualGroups.flatMapTo(mutableSetOf()) { group ->
-            group.items.map { it.id }
-        }
-
         val embeddingRows = dao.findAllWithEmbedding()
-        val semanticCandidates = embeddingRows.filter { row ->
-            row.mediaId !in exactIds && row.mediaId !in groupedByPerceptual
-        }
-        val semanticGroups = buildSemanticGroups(
-            rows = semanticCandidates,
-            offset = exactGroups.size + perceptualGroups.size,
-        )
 
-        return exactGroups + perceptualGroups + semanticGroups
-    }
-
-    private fun buildPerceptualGroups(
-        rows: List<MediaHashEntity>,
-        offset: Int,
-    ): List<DuplicateGroup> {
-        if (rows.isEmpty()) return emptyList()
-
-        val hashes = rows.mapNotNull { row ->
-            val hash = row.pHash ?: return@mapNotNull null
-            row to hash
-        }
-        if (hashes.isEmpty()) return emptyList()
-
-        val disjointSet = IntDisjointSet(hashes.size)
-        val tree = HammingBkTree().apply {
-            hashes.forEachIndexed { index, (_, hash) -> add(hash, index) }
+        val allEntities = (exact + pHashRows + embeddingRows).distinctBy { it.mediaId }
+        val candidates = allEntities.map { entity ->
+            com.miaclean.shared.dedup.DedupCandidate(
+                item = entity.toMediaItem(),
+                md5 = entity.md5,
+                pHash = entity.pHash,
+                embeddingHash = entity.embeddingHash?.let(::decodeEmbedding)
+            )
         }
 
-        hashes.forEachIndexed { index, (_, hash) ->
-            val neighbors = tree.search(hash, PHASH_DISTANCE_THRESHOLD)
-            neighbors.forEach { neighbor ->
-                if (neighbor != index) disjointSet.union(index, neighbor)
-            }
+        val grouping: com.miaclean.shared.dedup.DuplicateGrouping = com.miaclean.shared.dedup.DefaultDuplicateGrouping()
+        val ranking: com.miaclean.shared.dedup.DuplicateRanking = com.miaclean.shared.dedup.DefaultDuplicateRanking()
+        
+        val rawGroups = grouping.group(candidates)
+        
+        // Apply ranking to items in the group
+        return rawGroups.map { group ->
+            group.copy(items = ranking.rank(group))
         }
-
-        val components = linkedMapOf<Int, MutableList<MediaHashEntity>>()
-        hashes.forEachIndexed { index, (row, _) ->
-            val root = disjointSet.find(index)
-            components.getOrPut(root) { mutableListOf() } += row
-        }
-
-        var nextId = offset.toLong()
-        return components.values
-            .asSequence()
-            .filter { it.size > 1 }
-            .map { bucket ->
-                DuplicateGroup(
-                    groupId = nextId++,
-                    strategy = DuplicateGroup.Strategy.PERCEPTUAL_PHASH,
-                    items = bucket.map(MediaHashEntity::toMediaItem),
-                    totalBytes = bucket.sumOf { it.sizeBytes },
-                )
-            }
-            .toList()
-    }
-
-    private fun buildSemanticGroups(
-        rows: List<MediaHashEntity>,
-        offset: Int,
-    ): List<DuplicateGroup> {
-        val decoded = rows.mapNotNull { row ->
-            val embedding = row.embeddingHash?.let(::decodeEmbedding) ?: return@mapNotNull null
-            row to embedding
-        }
-        val visited = BooleanArray(decoded.size)
-        val groups = mutableListOf<DuplicateGroup>()
-        var nextId = offset.toLong()
-
-        for (i in decoded.indices) {
-            if (visited[i]) continue
-            val (baseRow, baseEmbedding) = decoded[i]
-            val bucket = mutableListOf(baseRow)
-            visited[i] = true
-
-            for (j in (i + 1) until decoded.size) {
-                if (visited[j]) continue
-                val (candidateRow, candidateEmbedding) = decoded[j]
-                if (imageEmbedder.cosine(baseEmbedding, candidateEmbedding) >= SEMANTIC_SIMILARITY_THRESHOLD) {
-                    bucket += candidateRow
-                    visited[j] = true
-                }
-            }
-
-            if (bucket.size > 1) {
-                groups += DuplicateGroup(
-                    groupId = nextId++,
-                    strategy = DuplicateGroup.Strategy.SEMANTIC_EMBED,
-                    items = bucket.map(MediaHashEntity::toMediaItem),
-                    totalBytes = bucket.sumOf { it.sizeBytes },
-                )
-            }
-        }
-        return groups
     }
 }
 
@@ -327,100 +239,6 @@ private fun encodeEmbedding(values: FloatArray): String =
 private fun decodeEmbedding(serialized: String): FloatArray {
     val parts = serialized.split(',')
     return FloatArray(parts.size) { index -> parts[index].toFloatOrNull() ?: 0f }
-}
-
-private const val SEMANTIC_SIMILARITY_THRESHOLD = 0.92f
-private const val PHASH_DISTANCE_THRESHOLD = 5
-
-private class IntDisjointSet(size: Int) {
-    private val parent = IntArray(size) { it }
-    private val rank = IntArray(size)
-
-    fun find(x: Int): Int {
-        if (parent[x] != x) parent[x] = find(parent[x])
-        return parent[x]
-    }
-
-    fun union(a: Int, b: Int) {
-        var rootA = find(a)
-        var rootB = find(b)
-        if (rootA == rootB) return
-        if (rank[rootA] < rank[rootB]) {
-            val tmp = rootA
-            rootA = rootB
-            rootB = tmp
-        }
-        parent[rootB] = rootA
-        if (rank[rootA] == rank[rootB]) rank[rootA]++
-    }
-}
-
-private class HammingBkTree {
-    private var root: Node? = null
-
-    fun add(hash: String, index: Int) {
-        val node = Node(hash = hash, indices = mutableListOf(index))
-        val currentRoot = root
-        if (currentRoot == null) {
-            root = node
-            return
-        }
-        insert(currentRoot, node)
-    }
-
-    fun search(hash: String, maxDistance: Int): List<Int> {
-        val result = mutableListOf<Int>()
-        searchRecursive(root = root, hash = hash, maxDistance = maxDistance, result = result)
-        return result
-    }
-
-    private fun insert(current: Node, candidate: Node) {
-        val distance = hammingDistance(current.hash, candidate.hash, stopAfter = Int.MAX_VALUE)
-        if (distance == 0) {
-            current.indices += candidate.indices
-            return
-        }
-        val next = current.children[distance]
-        if (next == null) {
-            current.children[distance] = candidate
-        } else {
-            insert(next, candidate)
-        }
-    }
-
-    private fun searchRecursive(
-        root: Node?,
-        hash: String,
-        maxDistance: Int,
-        result: MutableList<Int>,
-    ) {
-        val node = root ?: return
-        val distance = hammingDistance(node.hash, hash, stopAfter = Int.MAX_VALUE)
-        if (distance <= maxDistance) result += node.indices
-        val lower = (distance - maxDistance).coerceAtLeast(0)
-        val upper = distance + maxDistance
-        for ((edge, child) in node.children) {
-            if (edge in lower..upper) {
-                searchRecursive(root = child, hash = hash, maxDistance = maxDistance, result = result)
-            }
-        }
-    }
-
-    private data class Node(
-        val hash: String,
-        val indices: MutableList<Int>,
-        val children: MutableMap<Int, Node> = mutableMapOf(),
-    )
-}
-
-private fun hammingDistance(left: String, right: String, stopAfter: Int): Int {
-    if (left.length != right.length) return Int.MAX_VALUE
-    var distance = 0
-    for (i in left.indices) {
-        if (left[i] != right[i]) distance++
-        if (distance > stopAfter) return distance
-    }
-    return distance
 }
 
 private fun MediaHashEntity.toMediaItem(): MediaItem = MediaItem(
