@@ -37,7 +37,7 @@ import javax.inject.Singleton
  * once any stage grows beyond a few dozen lines.
  */
 @Singleton
-class ScanRepository(
+class ScanRepository @Inject constructor(
     private val mediaStoreScanner: MediaStoreScanner,
     private val safScanner: SafWhatsAppScanner,
     private val exactHashOrchestrator: ExactHashOrchestrator,

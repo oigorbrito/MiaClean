@@ -16,15 +16,6 @@ import com.miaclean.app.data.hash.Md5Hasher
 import com.miaclean.shared.dedup.DuplicateOrchestrator
 import com.miaclean.shared.hash.ExactHashOrchestrator
 
-import com.miaclean.app.data.ScanRepository
-import com.miaclean.app.data.classify.SelfieDetector
-import com.miaclean.app.data.classify.MemeDetector
-import com.miaclean.app.data.classify.ClassifierEventLogger
-import com.miaclean.app.data.hash.PerceptualHasher
-import com.miaclean.app.data.ml.ImageEmbedderWrapper
-import com.miaclean.app.data.scan.MediaStoreScanner
-import com.miaclean.app.data.scan.SafWhatsAppScanner
-
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
@@ -51,31 +42,11 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideScanRepository(
-        mediaStoreScanner: MediaStoreScanner,
-        safScanner: SafWhatsAppScanner,
-        exactHashOrchestrator: ExactHashOrchestrator,
-        perceptualHasher: PerceptualHasher,
-        imageEmbedder: ImageEmbedderWrapper,
-        classifier: MediaClassifier,
-        selfieDetector: SelfieDetector,
-        memeDetector: MemeDetector,
-        logger: ClassifierEventLogger,
-        dao: MediaHashDao,
-        duplicateOrchestrator: DuplicateOrchestrator,
-    ): ScanRepository = ScanRepository(
-        mediaStoreScanner = mediaStoreScanner,
-        safScanner = safScanner,
-        exactHashOrchestrator = exactHashOrchestrator,
-        perceptualHasher = perceptualHasher,
-        imageEmbedder = imageEmbedder,
-        classifier = classifier,
-        selfieSignalsProvider = selfieDetector,
-        memeSignalsProvider = memeDetector,
-        logger = logger,
-        dao = dao,
-        duplicateOrchestrator = duplicateOrchestrator,
-    )
+    fun provideSelfieSignalsProvider(impl: com.miaclean.app.data.classify.SelfieDetector): com.miaclean.app.data.classify.SelfieSignalsProvider = impl
+
+    @Provides
+    @Singleton
+    fun provideMemeSignalsProvider(impl: com.miaclean.app.data.classify.MemeDetector): com.miaclean.app.data.classify.MemeSignalsProvider = impl
 
     @Provides
     @Singleton
