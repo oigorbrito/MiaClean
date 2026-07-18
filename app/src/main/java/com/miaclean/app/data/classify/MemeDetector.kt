@@ -9,6 +9,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.miaclean.app.domain.MediaItem
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.Closeable
 import javax.inject.Inject
@@ -37,7 +38,7 @@ import kotlinx.coroutines.tasks.await
 class MemeDetector @Inject constructor(
     @ApplicationContext private val context: Context,
     private val logger: ClassifierEventLogger,
-) : Closeable {
+) : MemeSignalsProvider, Closeable {
 
     private val recognizerLazy: Lazy<TextRecognizer?> = lazy { tryCreateRecognizer() }
     private val recognizer: TextRecognizer? get() = recognizerLazy.value
@@ -55,27 +56,26 @@ class MemeDetector @Inject constructor(
      * ML Kit API is Task-based; callers are expected to already be off the main thread (the scan
      * pipeline runs on [kotlinx.coroutines.Dispatchers.IO]).
      */
-    suspend fun isMeme(
-        uri: Uri,
-        sizeBytes: Long,
-        mediaId: Long = 0L,
-        onError: (ErrorCategory) -> Unit = {},
-    ): Boolean {
+    override suspend fun provideSignals(
+        item: MediaItem,
+        onError: (ErrorCategory) -> Unit,
+    ): MemeSignals? {
         val startTime = System.currentTimeMillis()
-        logger.logStart("MemeDetector", mediaId)
+        logger.logStart("MemeDetector", item.id)
 
-        if (sizeBytes > MAX_DECODE_BYTES) {
-            logger.logSuccess("MemeDetector", mediaId, "Photo (Too large)", System.currentTimeMillis() - startTime)
-            return false
+        if (item.sizeBytes > MAX_DECODE_BYTES) {
+            logger.logSuccess("MemeDetector", item.id, "Photo (Too large)", System.currentTimeMillis() - startTime)
+            return null
         }
 
+        val uri = Uri.parse(item.uri)
         val bitmap = try {
             decodeDownscaled(uri)
         } catch (e: Exception) {
-            logger.logFailure("MemeDetector", mediaId, ErrorCategory.IMAGE_INVALID, "Decoding failed: ${e.message}", System.currentTimeMillis() - startTime)
+            logger.logFailure("MemeDetector", item.id, ErrorCategory.IMAGE_INVALID, "Decoding failed: ${e.message}", System.currentTimeMillis() - startTime)
             onError(ErrorCategory.IMAGE_INVALID)
             null
-        } ?: return false
+        } ?: return null
 
         val signals = try {
             runRecognition(bitmap)
@@ -86,18 +86,17 @@ class MemeDetector @Inject constructor(
             } else {
                 ErrorCategory.UNEXPECTED
             }
-            logger.logFailure("MemeDetector", mediaId, category, "Recognition failed: ${e.message}", System.currentTimeMillis() - startTime)
+            logger.logFailure("MemeDetector", item.id, category, "Recognition failed: ${e.message}", System.currentTimeMillis() - startTime)
             onError(category)
             null
         } finally {
             bitmap.recycle()
         }
 
-        val result = signals != null && MemeEvaluator.isMeme(signals)
         if (signals != null) {
-            logger.logSuccess("MemeDetector", mediaId, if (result) "Meme" else "Photo", System.currentTimeMillis() - startTime)
+            logger.logSuccess("MemeDetector", item.id, "MemeSignalsExtracted", System.currentTimeMillis() - startTime)
         }
-        return result
+        return signals
     }
 
     private suspend fun runRecognition(bitmap: Bitmap): MemeSignals? {

@@ -27,7 +27,7 @@ data class MemeSignals(
         /** Fraction of a top/bottom band that must contain text bounding boxes for the band to
          *  count as "has text" - 1.5% of the full image area per band is enough to distinguish
          *  caption strips from incidental signs. */
-        internal const val MIN_BAND_COVERAGE = 0.015f
+        const val MIN_BAND_COVERAGE = 0.015f
 
         /** Minimum total characters to trust any meme rule - guards against OCR noise on
          *  photos where the recognizer hallucinates 1-3 character blocks. */

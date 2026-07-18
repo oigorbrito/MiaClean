@@ -5,18 +5,6 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Robustness and observability categories for classification errors.
- */
-enum class ErrorCategory {
-    IMAGE_INVALID,
-    EMPTY_RESPONSE,
-    TIMEOUT,
-    NETWORK_ERROR,
-    SERVICE_UNAVAILABLE,
-    UNEXPECTED
-}
-
-/**
  * Internal logger for image classification flow.
  * Provides a simple abstraction for recording start, success, failure and duration
  * without external analytics dependencies.
