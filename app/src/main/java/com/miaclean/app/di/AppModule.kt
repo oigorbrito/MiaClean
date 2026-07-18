@@ -53,13 +53,13 @@ object AppModule {
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class SignalProvidersModule {
+object SignalProvidersModule {
 
-    @Binds
+    @Provides
     @Singleton
-    abstract fun bindSelfieSignalsProvider(impl: SelfieDetector): SelfieSignalsProvider
+    fun provideSelfieSignalsProvider(impl: SelfieDetector): SelfieSignalsProvider = impl
 
-    @Binds
+    @Provides
     @Singleton
-    abstract fun bindMemeSignalsProvider(impl: MemeDetector): MemeSignalsProvider
+    fun provideMemeSignalsProvider(impl: MemeDetector): MemeSignalsProvider = impl
 }
