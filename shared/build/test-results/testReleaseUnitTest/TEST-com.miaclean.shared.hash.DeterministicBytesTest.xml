@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.miaclean.shared.hash.DeterministicBytesTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-07-16T14:25:55" hostname="DESKTOP-VEHOMO7" time="0.02">
-  <properties/>
-  <testcase name="testRepeatedBytes" classname="com.miaclean.shared.hash.DeterministicBytesTest" time="0.003"/>
-  <testcase name="testDeterministicBytesAreConsistent" classname="com.miaclean.shared.hash.DeterministicBytesTest" time="0.017"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>
