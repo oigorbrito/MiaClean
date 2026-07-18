@@ -11,6 +11,7 @@ import com.miaclean.app.data.classify.SelfieEvaluator
 import com.miaclean.app.data.db.MediaHashDao
 import com.miaclean.app.data.db.MediaHashEntity
 import com.miaclean.app.data.hash.AndroidMediaSource
+import com.miaclean.shared.dedup.DuplicateOrchestrator
 import com.miaclean.shared.hash.ExactHashOrchestrator
 import com.miaclean.app.data.hash.PerceptualHasher
 import com.miaclean.app.data.ml.ImageEmbedderWrapper
@@ -47,6 +48,7 @@ class ScanRepository @Inject constructor(
     private val memeSignalsProvider: MemeSignalsProvider,
     private val logger: ClassifierEventLogger,
     private val dao: MediaHashDao,
+    private val duplicateOrchestrator: DuplicateOrchestrator,
 ) {
 
     fun scan(additionalSafTreeUris: List<Uri> = emptyList()): Flow<ScanProgress> = channelFlow {
@@ -200,15 +202,8 @@ class ScanRepository @Inject constructor(
             )
         }
 
-        val grouping: com.miaclean.shared.dedup.DuplicateGrouping = com.miaclean.shared.dedup.DefaultDuplicateGrouping()
-        val ranking: com.miaclean.shared.dedup.DuplicateRanking = com.miaclean.shared.dedup.DefaultDuplicateRanking()
-        
-        val rawGroups = grouping.group(candidates)
-        
-        // Apply ranking to items in the group
-        return rawGroups.map { group ->
-            group.copy(items = ranking.rank(group))
-        }
+        val orchestrator = duplicateOrchestrator
+        return orchestrator.process(candidates)
     }
 }
 

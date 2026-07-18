@@ -4,8 +4,8 @@ import android.net.Uri
 import com.miaclean.app.R
 import com.miaclean.app.data.classify.ErrorCategory
 import com.miaclean.app.data.classify.MediaClassifier
-import com.miaclean.app.data.classify.MemeDetector
-import com.miaclean.app.data.classify.SelfieDetector
+import com.miaclean.app.data.classify.MemeSignalsProvider
+import com.miaclean.app.data.classify.SelfieSignalsProvider
 import com.miaclean.app.data.classify.ClassifierEventLogger
 import com.miaclean.app.data.db.MediaHashDao
 import com.miaclean.shared.hash.ExactHashOrchestrator
@@ -50,8 +50,8 @@ class ScanRepositoryHardeningTest {
     private val perceptualHasher = mockk<PerceptualHasher>()
     private val imageEmbedder = mockk<ImageEmbedderWrapper>()
     private val classifier = mockk<MediaClassifier>()
-    private val selfieDetector = mockk<SelfieDetector>()
-    private val memeDetector = mockk<MemeDetector>()
+    private val selfieSignalsProvider = mockk<SelfieSignalsProvider>()
+    private val memeSignalsProvider = mockk<MemeSignalsProvider>()
     private val logger = mockk<ClassifierEventLogger>(relaxed = true)
     private val dao = mockk<MediaHashDao>()
 
@@ -133,10 +133,11 @@ class ScanRepositoryHardeningTest {
         perceptualHasher = perceptualHasher,
         imageEmbedder = imageEmbedder,
         classifier = classifier,
-        selfieDetector = selfieDetector,
-        memeDetector = memeDetector,
+        selfieSignalsProvider = selfieSignalsProvider,
+        memeSignalsProvider = memeSignalsProvider,
         logger = logger,
         dao = dao,
+        duplicateOrchestrator = com.miaclean.shared.dedup.DuplicateOrchestrator(),
     )
 
     private fun stubHappyPath(item: MediaItem) {
@@ -148,8 +149,8 @@ class ScanRepositoryHardeningTest {
         every { perceptualHasher.hash(any()) } returns "phash-${item.id}"
         every { imageEmbedder.embed(any()) } returns null
         every { classifier.classify(item) } returns MediaCategory.Photo
-        every { selfieDetector.isSelfie(any(), any(), any(), any()) } returns false
-        coEvery { memeDetector.isMeme(any(), any(), any(), any()) } returns false
+        coEvery { selfieSignalsProvider.provideSignals(any(), any()) } returns null
+        coEvery { memeSignalsProvider.provideSignals(any(), any()) } returns null
         coEvery { dao.upsert(any()) } returns 1L
         coEvery { dao.findExactDuplicates() } returns emptyList()
         coEvery { dao.findAllWithPHash() } returns emptyList()

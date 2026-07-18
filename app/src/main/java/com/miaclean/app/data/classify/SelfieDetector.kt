@@ -14,6 +14,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.Closeable
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.miaclean.app.domain.MediaItem
 
 /**
  * Runs after [MediaClassifier] and promotes `Photo` candidates to `Selfie` when EXIF or a
@@ -36,7 +37,7 @@ import javax.inject.Singleton
 class SelfieDetector @Inject constructor(
     @ApplicationContext private val context: Context,
     private val logger: ClassifierEventLogger,
-) : Closeable {
+) : SelfieSignalsProvider, Closeable {
 
     // Hold the Lazy delegate itself so [close] can check `isInitialized()` and skip triggering
     // MediaPipe's native initialization just to immediately tear it down. Without this, a caller
@@ -65,44 +66,43 @@ class SelfieDetector @Inject constructor(
      * any thread — performs blocking I/O, so callers are expected to already be on
      * [kotlinx.coroutines.Dispatchers.IO] (the scan pipeline is).
      */
-    fun isSelfie(
-        uri: Uri,
-        sizeBytes: Long,
-        mediaId: Long = 0L,
-        onError: (ErrorCategory) -> Unit = {},
-    ): Boolean {
+    override suspend fun provideSignals(
+        item: MediaItem,
+        onError: (ErrorCategory) -> Unit,
+    ): SelfieSignals? {
         val startTime = System.currentTimeMillis()
-        logger.logStart("SelfieDetector", mediaId)
+        logger.logStart("SelfieDetector", item.id)
+
+        val uri = Uri.parse(item.uri)
 
         return try {
             val exif = readExifSignals(uri)
             if (SelfieEvaluator.isSelfie(exif)) {
-                logger.logSuccess("SelfieDetector", mediaId, "Selfie (EXIF)", System.currentTimeMillis() - startTime)
-                return true
+                logger.logSuccess("SelfieDetector", item.id, "Selfie (EXIF)", System.currentTimeMillis() - startTime)
+                return exif
             }
 
-            if (sizeBytes > MAX_DECODE_BYTES) {
-                logger.logSuccess("SelfieDetector", mediaId, "Photo (Too large)", System.currentTimeMillis() - startTime)
-                return false
+            if (item.sizeBytes > MAX_DECODE_BYTES) {
+                logger.logSuccess("SelfieDetector", item.id, "Photo (Too large)", System.currentTimeMillis() - startTime)
+                return exif
             }
 
-            val faceSignals = runFaceDetection(uri, mediaId, onError)
+            val faceSignals = runFaceDetection(uri, item.id, onError)
             if (faceSignals == null) {
                 // runFaceDetection already handles internal logging and callback if it returns null
-                return false
+                return exif
             }
 
             val combined = exif.copy(
                 faceCount = faceSignals.faceCount,
                 largestFaceAreaRatio = faceSignals.largestFaceAreaRatio,
             )
-            val result = SelfieEvaluator.isSelfie(combined)
-            logger.logSuccess("SelfieDetector", mediaId, if (result) "Selfie (Face)" else "Photo", System.currentTimeMillis() - startTime)
-            result
+            logger.logSuccess("SelfieDetector", item.id, "SelfieSignalsExtracted", System.currentTimeMillis() - startTime)
+            combined
         } catch (e: Exception) {
-            logger.logFailure("SelfieDetector", mediaId, ErrorCategory.UNEXPECTED, e.message, System.currentTimeMillis() - startTime)
+            logger.logFailure("SelfieDetector", item.id, ErrorCategory.UNEXPECTED, e.message, System.currentTimeMillis() - startTime)
             onError(ErrorCategory.UNEXPECTED)
-            false
+            null
         }
     }
 
