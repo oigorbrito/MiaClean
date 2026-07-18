@@ -81,3 +81,5 @@ SafWhatsAppScanner ┘
 ## License
 
 TBD.
+
+**Roadmap**: The definitive roadmap is maintained in [docs/ROADMAP.md](file:///C:/Projetos/miaclean/docs/ROADMAP.md).

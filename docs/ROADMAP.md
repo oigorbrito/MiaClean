@@ -8,15 +8,11 @@
 - **Consented Deletion**: Media deletion using the modern MediaStore API.
 
 ## Partial / Ongoing
-- **Contextual Classifier**: Basic heuristic classification for Memes/Selfies/Documents exists. Needs refinement with ML Kit OCR and more robust face detection.
-- **UI Polish**: Basic Results screen exists, but needs better selection UX and full-screen previews.
+- **Hashing**: MD5 and pHash generation is functional and independent of any persistence layer.
+- **Contextual Classifier**: Basic heuristic classification for Memes/Selfies/Documents exists. Needs refinement; does not rely on persistence.
+- **UI Polish**: Basic Results screen exists; UI deduplication improvements are scoped to future work.
 
 ## Pending / Future
-- **Cloud Backup Integration**: Detect if media is already backed up to Google Photos.
-- **Advanced Semantic Grouping**: Fully utilize MediaPipe embeddings for "Similar but not duplicate" detection.
-- **Automated Media Cleanup**: Scheduled background cleanup for specific categories (e.g., old memes).
-
-## Recommended Next PRs
-1. **Refine ML Classification**: Integrate ML Kit OCR to improve Document detection.
-2. **Improve Selection UX**: Add "Select All", "Deselect All", and smart selection (keep highest quality).
-3. **Add Full-screen Preview**: Implement a pager-based full-screen media viewer in the Results screen.
+- **Cloud Backup Integration**: Detect if media is backed up to Google Photos (requires network, no persistence impact).
+- **Advanced Semantic Grouping**: Utilize MediaPipe embeddings for similarity detection (independent of DB).
+- **Automated Media Cleanup**: Scheduled background cleanup for specific categories (does not affect current storage schema).
